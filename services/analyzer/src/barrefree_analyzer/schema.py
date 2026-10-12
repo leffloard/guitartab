@@ -25,6 +25,8 @@ class CamelModel(BaseModel):
         validate_by_alias=True,
         extra="forbid",
         frozen=True,
+        # JSON has no Infinity/NaN; Pydantic would serialize them as null and break the schema.
+        allow_inf_nan=False,
         # Defaulted fields are still always present in the output, so mark them required
         # in the serialization schema (cleaner generated TypeScript types).
         json_schema_serialization_defaults_required=True,

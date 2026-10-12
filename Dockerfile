@@ -1,6 +1,7 @@
-# syntax=docker/dockerfile:1
 # One image for both the API (which also serves the built web app) and the worker.
 # Build context: repository root.
+# No "# syntax=" directive on purpose: it would pull the frontend image from Docker Hub
+# on every build, defeating the base-image mirror args below.
 #
 # Base images are build args so that a registry mirror can be used when Docker Hub
 # rate-limits anonymous pulls, e.g. --build-arg NODE_IMAGE=mirror.gcr.io/library/node:24-slim
@@ -48,5 +49,5 @@ ENV PATH="/opt/venv/bin:${PATH}" \
     DATA_DIR=/data
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s \
-    CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=2)"]
+    CMD ["python", "-c", "import urllib.request as u; u.build_opener(u.ProxyHandler({})).open('http://127.0.0.1:8000/api/health', timeout=2)"]
 CMD ["uvicorn", "barrefree_analyzer.app:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000"]

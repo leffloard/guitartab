@@ -49,6 +49,9 @@ def test_minimal_result_fills_defaults() -> None:
         {"key": {"tonic": "H", "mode": "major", "confidence": 0.5}},
         {"version": 2},
         {"unexpected": True},
+        {"durationSec": float("inf")},
+        {"beats": [float("nan")]},
+        {"chords": [{"start": 0.0, "end": float("inf"), "label": "N", "confidence": 0.5}]},
     ],
 )
 def test_rejects_invalid_results(patch: dict[str, Any]) -> None:

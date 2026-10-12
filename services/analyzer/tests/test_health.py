@@ -25,6 +25,8 @@ def test_serves_spa_with_client_side_route_fallback(tmp_path: Path) -> None:
     assert client.get("/library/some-song").text == "<html>spa</html>"
     assert client.get("/api/health").json()["status"] == "ok"
     assert client.get("/api/does-not-exist").status_code == 404
+    assert client.get("/api").status_code == 404
+    assert client.get("/api/").status_code == 404
 
 
 def test_no_spa_when_dist_missing(tmp_path: Path) -> None:

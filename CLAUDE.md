@@ -49,7 +49,7 @@ pnpm install
 pnpm dev                    # web on :5173, proxies /api to :8000
 pnpm lint                   # ESLint 10 flat config (type-aware, i18n literal-string rule)
 pnpm format / format:check  # Prettier
-pnpm typecheck              # tsc --noEmit in every package
+pnpm typecheck              # tsc --noEmit for root *.ts and every package
 pnpm test                   # Vitest 5 projects (apps/*, packages/*, data/*)
 pnpm test:coverage          # coverage thresholds live in the root vitest.config.ts
 pnpm gen:contracts          # regenerate packages/contracts/src/analysis.gen.ts from the schema
@@ -67,6 +67,12 @@ docker compose --profile tunnel up -d   # + Cloudflare Tunnel (CLOUDFLARE_TUNNEL
 ```
 
 ## Conventions and gotchas
+
+- **Node version:** `^22.22.2 || ^24.15.0 || >=26` (jsdom 30 is the strictest dependency; pnpm 11
+  needs ≥ 22.13, and `node scripts/*.ts` needs type stripping, which is on by default from 22.18).
+- **Compose does not pass `.env` into containers** (no `env_file`): `.env` is only for
+  interpolation, and analyzer settings are listed explicitly under `environment:`. This keeps
+  secrets such as the tunnel token out of the processes that handle uploads.
 
 - **Fret arrays:** index 0 = low E (string 6), frets relative to the nut or capo, `null` = muted,
   `0` = open. svguitar and alphaTex number strings the other way (1 = high E); convert only at

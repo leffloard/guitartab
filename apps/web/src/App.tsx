@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 
-import { SUPPORTED_LANGUAGES } from './i18n'
+import { isSupportedLanguage, setLanguage, SUPPORTED_LANGUAGES } from './i18n'
 
 export function App() {
   const { t, i18n } = useTranslation()
@@ -13,7 +13,9 @@ export function App() {
           {t('language.label')}{' '}
           <select
             value={i18n.resolvedLanguage}
-            onChange={(e) => void i18n.changeLanguage(e.target.value)}
+            onChange={(e) => {
+              if (isSupportedLanguage(e.target.value)) void setLanguage(e.target.value)
+            }}
           >
             {SUPPORTED_LANGUAGES.map((lng) => (
               <option key={lng} value={lng}>

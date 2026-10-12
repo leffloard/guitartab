@@ -30,7 +30,7 @@ class SpaStaticFiles(StaticFiles):
         try:
             return await super().get_response(path, scope)
         except StarletteHTTPException as exc:
-            if exc.status_code != 404 or path.startswith("api/"):
+            if exc.status_code != 404 or path == "api" or path.startswith("api/"):
                 raise
             return await super().get_response("index.html", scope)
 

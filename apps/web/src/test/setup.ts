@@ -8,4 +8,5 @@ initI18n()
 
 afterEach(() => {
   cleanup()
+  localStorage.clear()
 })

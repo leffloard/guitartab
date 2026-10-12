@@ -11,12 +11,13 @@ x-app: &app
       PYTHON_IMAGE: ${PYTHON_IMAGE:-python:3.12-slim-trixie}
   image: barrefree:local
   restart: unless-stopped
-  env_file:
-    - path: .env
-      required: false
+  # Settings are passed explicitly (no env_file) so that unrelated secrets in .env, such as the
+  # tunnel token, never reach the containers that process untrusted uploads.
   environment:
     DATA_DIR: /data
     ENABLE_URL_IMPORT: ${ENABLE_URL_IMPORT:-false}
+    MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-50}
+    MAX_DURATION_SEC: ${MAX_DURATION_SEC:-900}
   volumes:
     - jobs-data:/data
     - model-cache:/models

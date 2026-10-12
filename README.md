@@ -24,7 +24,7 @@ See [docs/architecture.md](docs/architecture.md) for the design and
 
 ## Development
 
-Requirements: Node ≥ 22.12 (24 recommended) with Corepack, [uv](https://docs.astral.sh/uv/),
+Requirements: Node 24.15+ (or 22.22.2+) with Corepack, [uv](https://docs.astral.sh/uv/),
 and Docker for the full stack.
 
 ```bash

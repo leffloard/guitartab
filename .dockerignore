@@ -7,12 +7,13 @@
 **/.mypy_cache
 **/.ruff_cache
 .git
-local-data
-models
-*.wav
-*.mp3
-*.flac
-*.m4a
-*.ogg
-.env
-.env.*
+# Personal data and secrets must never reach an image, at any depth.
+**/local-data
+/models
+**/*.wav
+**/*.mp3
+**/*.flac
+**/*.m4a
+**/*.ogg
+**/.env
+**/.env.*

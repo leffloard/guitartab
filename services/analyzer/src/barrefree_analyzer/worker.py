@@ -41,7 +41,9 @@ def main() -> None:
 
     def _handle(signum: int, _frame: FrameType | None) -> None:
         log.info("received signal %d, shutting down", signum)
-        worker.stop()
+        # Event.set() takes a non-reentrant lock that the interrupted main thread may be holding
+        # inside Event.wait(); calling it directly from the handler could deadlock.
+        threading.Thread(target=worker.stop, name="worker-stop", daemon=True).start()
 
     signal.signal(signal.SIGTERM, _handle)
     signal.signal(signal.SIGINT, _handle)
