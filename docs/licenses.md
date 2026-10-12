@@ -44,13 +44,13 @@ their own terms.
 
 ### Planned: web
 
-| Component                        | License      | Notes                                                                  |
-| -------------------------------- | ------------ | ---------------------------------------------------------------------- |
-| svguitar                         | MIT          | chord diagrams (M2)                                                    |
-| wavesurfer.js v8                 | BSD-3-Clause | player and waveform (M4)                                               |
-| alphaTab (`@coderline/alphatab`) | MPL-2.0      | tab rendering (M7); file-level copyleft, OK to bundle                  |
-| idb                              | ISC          | IndexedDB library (M4)                                                 |
-| tombatossals/chords-db data      | MIT          | seed for `data/voicings` (M1); notice kept in `data/voicings/LICENSES` |
+| Component                        | License      | Notes                                                                                                                    |
+| -------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| svguitar                         | MIT          | chord diagrams (M2)                                                                                                      |
+| wavesurfer.js v8                 | BSD-3-Clause | player and waveform (M4)                                                                                                 |
+| alphaTab (`@coderline/alphatab`) | MPL-2.0      | tab rendering (M7); file-level copyleft, OK to bundle                                                                    |
+| idb                              | ISC          | IndexedDB library (M4)                                                                                                   |
+| tombatossals/chords-db data      | MIT          | **in use**: `data/voicings/standard/chords-db.json` at a pinned commit; notice in `data/voicings/LICENSES/chords-db.txt` |
 
 ### Planned: analyzer
 

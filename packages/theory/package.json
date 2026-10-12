@@ -10,12 +10,18 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "import:chords-db": "node scripts/import-chords-db.ts"
   },
   "devDependencies": {
     "@fast-check/vitest": "catalog:",
+    "@types/node": "catalog:",
+    "ajv": "catalog:",
     "fast-check": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
+  },
+  "dependencies": {
+    "@barrefree/voicings": "workspace:*"
   }
 }

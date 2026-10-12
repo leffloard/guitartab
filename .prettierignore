@@ -5,3 +5,4 @@ services/analyzer/.venv
 services/analyzer/uv.lock
 **/*.gen.ts
 packages/contracts/schema/*.json
+data/voicings/standard/chords-db.json

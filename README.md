@@ -6,7 +6,8 @@ Give BarreFree an audio file or a pasted chord sheet. It suggests the best capo 
 any remaining barre chords for the musically closest open shapes (F → Fmaj7, Bm → Bm7, B → B7…),
 draws the finger diagrams and keeps the chords in sync with the music while you play.
 
-> **Status:** early development (milestone M0, the project skeleton). Nothing is usable yet.
+> **Status:** early development. The transform engine (`packages/theory`, milestone M1) works;
+> the web UI comes next (M2).
 
 ## Repository layout
 
@@ -15,7 +16,7 @@ draws the finger diagrams and keeps the chords in sync with the music while you 
 | `apps/web`           | React + Vite + TypeScript single-page app (PWA, `tr` + `en`)            | MIT              |
 | `packages/theory`    | Pure TypeScript transform engine: parsing, transposition, capo, voicing | MIT              |
 | `packages/contracts` | TypeScript types generated from the analyzer's JSON Schema              | MIT              |
-| `data/voicings`      | Chord-shape library (JSON + JSON Schema), arrives in M1                 | MIT              |
+| `data/voicings`      | Chord-shape library (JSON + JSON Schema), seeded from chords-db         | MIT              |
 | `services/analyzer`  | Python 3.12 + FastAPI audio analysis service and job worker             | GPL-3.0-or-later |
 | `docs/`              | Architecture, algorithms and license notes                              |                  |
 

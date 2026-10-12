@@ -11,7 +11,7 @@
     "./schema/analysis.schema.json": "./schema/analysis.schema.json"
   },
   "scripts": {
-    "generate": "node scripts/generate.ts && prettier --write src/analysis.gen.ts",
+    "generate": "node scripts/generate.ts",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

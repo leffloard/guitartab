@@ -28,7 +28,7 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test:coverage
       - name: Generated contract types are up to date
-        run: pnpm gen:contracts && git diff --exit-code -- packages/contracts
+        run: pnpm check:contracts
       - run: pnpm build
 
   analyzer:

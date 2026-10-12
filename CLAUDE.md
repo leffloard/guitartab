@@ -23,9 +23,12 @@ who cannot play barre chords.
 - `apps/web`: React 19 + Vite 8 SPA (PWA, i18n `tr`/`en`). All music theory runs client-side.
 - `packages/theory`: pure, deterministic TypeScript transform engine (parse, transpose, capo
   search, voicing selection, difficulty modes). No framework or I/O dependencies. Coverage ≥ 90%.
+  Algorithms, formulas and the worked F example: docs/algorithms/transform-engine.md.
 - `packages/contracts`: TS types **generated** from the analyzer's JSON Schema. Never edit
   `*.gen.ts` or `schema/*.json` by hand.
-- `data/voicings`: chord-shape library (JSON + JSON Schema), arriving in M1.
+- `data/voicings`: chord-shape library (JSON + JSON Schema): `standard/curated.json` (hand-checked,
+  wins on duplicates) and `standard/chords-db.json` (generated from tombatossals/chords-db, MIT,
+  pinned commit; never edit by hand).
 - `services/analyzer`: Python 3.12 + FastAPI + a SQLite-queue worker. It returns **raw analysis
   only** (beats, key, Harte chord labels, notes). It must never implement capo, transposition or
   voicing logic: those belong in `packages/theory`.
@@ -53,6 +56,8 @@ pnpm typecheck              # tsc --noEmit for root *.ts and every package
 pnpm test                   # Vitest 5 projects (apps/*, packages/*, data/*)
 pnpm test:coverage          # coverage thresholds live in the root vitest.config.ts
 pnpm gen:contracts          # regenerate packages/contracts/src/analysis.gen.ts from the schema
+pnpm check                  # everything CI runs (JS + analyzer); run before every push
+pnpm --filter @barrefree/theory import:chords-db /path/to/guitar.json  # regenerate the chord library
 
 # Python (services/analyzer)
 uv sync
@@ -74,6 +79,12 @@ docker compose --profile tunnel up -d   # + Cloudflare Tunnel (CLOUDFLARE_TUNNEL
   interpolation, and analyzer settings are listed explicitly under `environment:`. This keeps
   secrets such as the tunnel token out of the processes that handle uploads.
 
+- **Chord model:** `Chord = { root, intervals (12-bit set), bass }`; names (third, seventh,
+  tensions) are derived by `describe()`. Never add a second representation of a chord.
+- **Relative imports use `.ts` extensions** (`allowImportingTsExtensions`, `erasableSyntaxOnly`),
+  so scripts run with plain `node file.ts` (Node's type stripping) and no build step.
+- **GitHub Actions cannot run** (account billing lock). `pnpm check` is the quality gate until
+  that is resolved; `.github/workflows/ci.yml` stays in place.
 - **Fret arrays:** index 0 = low E (string 6), frets relative to the nut or capo, `null` = muted,
   `0` = open. svguitar and alphaTex number strings the other way (1 = high E); convert only at
   the rendering boundary.
@@ -103,8 +114,8 @@ docker compose --profile tunnel up -d   # + Cloudflare Tunnel (CLOUDFLARE_TUNNEL
 | #   | Scope                                                                                           | Status  |
 | --- | ----------------------------------------------------------------------------------------------- | ------- |
 | M0  | Monorepo skeleton, lint/format, Vitest + pytest, CI, Docker skeleton                            | ✅ done |
-| M1  | `packages/theory` + `data/voicings`: parser, transpose, voicings, scoring, capo search, 4 modes | next    |
-| M2  | Web: text mode end to end, diagrams, mode/λ/capo UI, i18n, PWA                                  |         |
+| M1  | `packages/theory` + `data/voicings`: parser, transpose, voicings, scoring, capo search, 4 modes | ✅ done |
+| M2  | Web: text mode end to end, diagrams, mode/λ/capo UI, i18n, PWA                                  | next    |
 | M3  | Analyzer: upload → decode → beats → key → Chordino; job queue + SSE                             |         |
 | M4  | Synced player, speed/A-B loop, confidence marks, manual edits, IndexedDB library                |         |
 | M5  | BTC (+ lv-chordia) recognizers, Demucs, evaluation report                                       |         |

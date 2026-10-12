@@ -1,0 +1,21 @@
+{
+  "name": "@barrefree/voicings",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Guitar chord-shape library (standard tuning) with a JSON Schema.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema/voicing-library.schema.json": "./schema/voicing-library.schema.json"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "ajv": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
