@@ -55,7 +55,18 @@ export default defineConfig(
         {
           mode: 'jsx-only',
           'jsx-attributes': {
-            exclude: ['className', 'data-testid', 'to', 'href', 'type', 'id', 'key', 'lang'],
+            exclude: [
+              'className',
+              'data-testid',
+              'to',
+              'href',
+              'type',
+              'id',
+              'key',
+              'lang',
+              'value',
+              'name',
+            ],
           },
         },
       ],

@@ -318,6 +318,22 @@ export function tryParseChordSymbol(input: string): Chord | null {
 
 export interface FormatOptions {
   spelling?: Spelling
+  /** `letter`: C D E F G A B. `solfege`: Do Re Mi Fa Sol La Si (fixed do, as taught in Turkey). */
+  noteNames?: 'letter' | 'solfege'
+}
+
+const SOLFEGE: Readonly<Record<string, string>> = {
+  C: 'Do',
+  D: 'Re',
+  E: 'Mi',
+  F: 'Fa',
+  G: 'Sol',
+  A: 'La',
+  B: 'Si',
+}
+
+function toSolfege(name: string): string {
+  return (SOLFEGE[name[0] ?? ''] ?? name[0] ?? '') + name.slice(1)
 }
 
 const ALTERATIONS: ReadonlySet<Tension> = new Set(['b9', '#9', '#11', 'b13'])
@@ -443,6 +459,7 @@ function spellRoot(chord: Chord, spelling: Spelling): string {
 export function formatChordSymbol(chord: Chord, options: FormatOptions = {}): string {
   const spelling = options.spelling ?? 'neutral'
   const root = spellRoot(chord, spelling)
-  const bass = chord.bass === null ? '' : `/${spellBass(chord, chord.bass, root, spelling)}`
-  return root + formatSuffix(chord) + bass
+  const bass = chord.bass === null ? null : spellBass(chord, chord.bass, root, spelling)
+  const name = (n: string) => (options.noteNames === 'solfege' ? toSolfege(n) : n)
+  return name(root) + formatSuffix(chord) + (bass === null ? '' : `/${name(bass)}`)
 }

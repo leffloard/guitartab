@@ -1,12 +1,107 @@
 {
   "app": {
     "title": "BarreFree",
-    "tagline": "Her şarkıyı barresiz akustik gitar akorlarına çevir.",
-    "status": "Erken geliştirme aşaması: henüz denenecek bir şey yok."
+    "tagline": "Her şarkıyı barresiz akustik gitar akorlarına çevir."
   },
   "language": {
     "label": "Dil",
     "en": "English",
     "tr": "Türkçe"
+  },
+  "settings": {
+    "title": "Ayarlar",
+    "noteNames": "Akor adları",
+    "letters": "C D E",
+    "solfege": "Do Re Mi",
+    "keepScreenOn": "Ekran açık kalsın"
+  },
+  "input": {
+    "title": "Akorları yapıştır",
+    "placeholder": "Akor metnini buraya yapıştır: sözlerin üstünde akorlar ya da [C] biçiminde ChordPro.",
+    "example": "Örnek yükle",
+    "clear": "Temizle",
+    "empty": "Henüz akor bulunamadı.",
+    "found_one": "{{count}} akor bulundu",
+    "found_other": "{{count}} akor bulundu",
+    "format": {
+      "chords-over-lyrics": "sözlerin üstünde akorlar",
+      "chordpro": "ChordPro"
+    }
+  },
+  "controls": {
+    "label": "Düzenleme seçenekleri"
+  },
+  "mode": {
+    "label": "Zorluk",
+    "original": "Orijinal",
+    "capo": "Kapo",
+    "easy": "Kolay",
+    "beginner": "Başlangıç",
+    "hint": {
+      "original": "Akorlar yazıldığı gibi, barreli şekiller dahil.",
+      "capo": "En iyi kapo pozisyonu; akorların kendisi hiç değişmez.",
+      "easy": "Kapo + kalan barreler yerine en yakın açık akor (F → Fmaj7, Bm → Bm7).",
+      "beginner": "Kolay + sade akorlar ve olabildiğince az farklı şekil."
+    }
+  },
+  "slider": {
+    "label": "Kolaylık ↔ sadakat",
+    "ease": "Daha kolay",
+    "fidelity": "Orijinale daha yakın",
+    "stop": {
+      "0": "En kolay",
+      "1": "Daha kolay",
+      "2": "Dengeli",
+      "3": "Orijinale yakın",
+      "4": "Olabildiğince orijinal"
+    }
+  },
+  "capo": {
+    "label": "Kapo pozisyonu",
+    "none": "Kapo yok",
+    "value": "Kapo {{capo}}",
+    "summary": "{{barres}} barre · {{shapes}} şekil",
+    "noCapo": "Kapo istemiyorum",
+    "infeasible": "Bu modda hiçbir kapo pozisyonu bütün akorları çalamıyor."
+  },
+  "transpose": {
+    "label": "Transpoze",
+    "down": "Yarım ses aşağı",
+    "up": "Yarım ses yukarı",
+    "value": "{{value}}"
+  },
+  "key": {
+    "label": "Ton"
+  },
+  "display": {
+    "label": "Göster",
+    "shapes": "Çalınacak şekiller",
+    "sounding": "Duyulan akorlar"
+  },
+  "sheet": {
+    "title": "Akorlar",
+    "label": "Akor metni",
+    "capoNote": "Kapoyu {{capo}}. perdeye tak. Akor adları çalacağın şekillerdir.",
+    "noCapoNote": "Kapo gerekmiyor."
+  },
+  "diagrams": {
+    "title": "Şekiller",
+    "label": "{{chord}} akor diyagramı",
+    "for": "{{chord}} için",
+    "previous": "Önceki şekil",
+    "next": "Sonraki şekil",
+    "position": "{{index}} / {{total}}",
+    "reset": "Önerilen şekli kullan"
+  },
+  "actions": {
+    "copyText": "Metni kopyala",
+    "copyChordPro": "ChordPro kopyala",
+    "copied": "Kopyalandı"
+  },
+  "pwa": {
+    "offlineReady": "BarreFree artık çevrimdışı da çalışıyor.",
+    "updateAvailable": "Yeni bir sürüm hazır.",
+    "reload": "Yenile",
+    "dismiss": "Kapat"
   }
 }

@@ -196,6 +196,20 @@ describe('modes', () => {
     expect(forced.alternatives[0]?.capo).toBe(3)
   })
 
+  it('transposes the song before arranging it', () => {
+    const up = transform(labels('E', 'B', 'C#m', 'A'), { mode: 'capo', transpose: -4 })
+    const direct = transform(labels('C', 'G', 'Am', 'F'), { mode: 'capo' })
+    expect(up.items.map((i) => i.input && formatChordSymbol(i.input))).toEqual([
+      'C',
+      'G',
+      'Am',
+      'F',
+    ])
+    expect(up.option?.symbols.map((s) => s.voicing.id)).toEqual(
+      direct.option?.symbols.map((s) => s.voicing.id),
+    )
+  })
+
   it('penalizes high capos more and more', () => {
     expect(capoPenalty(0)).toBe(0)
     expect(capoPenalty(5)).toBeCloseTo(0.7, 12)

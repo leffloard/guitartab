@@ -6,8 +6,9 @@ Give BarreFree an audio file or a pasted chord sheet. It suggests the best capo 
 any remaining barre chords for the musically closest open shapes (F → Fmaj7, Bm → Bm7, B → B7…),
 draws the finger diagrams and keeps the chords in sync with the music while you play.
 
-> **Status:** early development. The transform engine (`packages/theory`, milestone M1) works;
-> the web UI comes next (M2).
+> **Status:** early development. Text mode works end to end: paste a chord sheet (chords over
+> lyrics or ChordPro) and get a barre-free version with capo, diagrams and alternatives, in
+> Turkish or English, offline too. Audio analysis comes next (M3).
 
 ## Repository layout
 

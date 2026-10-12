@@ -401,6 +401,15 @@ describe('chord symbols', () => {
       expect(formatChordSymbol(symbol(input)), input).toBe(expected)
   })
 
+  it('writes fixed-do solfège names', () => {
+    const solfege = (text: string) => formatChordSymbol(symbol(text), { noteNames: 'solfege' })
+    expect(solfege('Am')).toBe('Lam')
+    expect(solfege('F#m7')).toBe('Fa#m7')
+    expect(solfege('Bb/D')).toBe('Sib/Re')
+    expect(solfege('G7sus4')).toBe('Sol7sus4')
+    expect(solfege('Cmaj7')).toBe('Domaj7')
+  })
+
   it('spells roots and basses', () => {
     expect(formatChordSymbol(symbol('A#m/C#'), { spelling: 'flat' })).toBe('Bbm/Db')
     expect(formatChordSymbol(symbol('Bbm/Db'), { spelling: 'sharp' })).toBe('A#m/C#')

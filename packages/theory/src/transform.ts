@@ -11,7 +11,7 @@ import {
   type Chord,
   type SimplifyLevel,
 } from './chord.ts'
-import { estimateKeySignature, spellingForKey } from './key.ts'
+import { estimateKeySignature, spellingForKey, type KeySignature } from './key.ts'
 import {
   generateVoicings,
   getDefaultLibrary,
@@ -114,6 +114,8 @@ export interface TransformOptions {
   capoRange?: readonly [number, number]
   /** Use this capo (if feasible) instead of the best one, e.g. when the user picks an alternative. */
   capo?: number
+  /** Transpose the song by this many semitones before anything else (key change). */
+  transpose?: number
   library?: VoicingLibrary
   difficultyWeights?: DifficultyWeights
   fidelityWeights?: FidelityWeights
@@ -183,6 +185,8 @@ export interface TransformResult {
   items: TransformItem[]
   /** Spelling for sounding chord names and for shape names. */
   spelling: { input: Spelling; shape: Spelling }
+  /** Estimated key signature of the song as heard and of the shapes as fingered. */
+  key: { input: KeySignature; shape: KeySignature }
 }
 
 type ResolvedOptions = TransformOptions & { lambda: number }
@@ -370,7 +374,13 @@ export function transform(
   const library = options.library ?? getDefaultLibrary()
   const opts = { ...options, lambda }
 
-  const parsed: ParsedLabel[] = progression.map((p) => parseChordLabel(p.label))
+  const shiftBy = options.transpose ?? 0
+  const parsed: ParsedLabel[] = progression.map((p) => {
+    const label = parseChordLabel(p.label)
+    return label.kind === 'chord' && shiftBy !== 0
+      ? { kind: 'chord', chord: transpose(label.chord, shiftBy) }
+      : label
+  })
   const timedChords = progression.flatMap((p, i) => {
     const label = parsed[i]
     return label?.kind === 'chord'
@@ -422,12 +432,11 @@ export function transform(
 
   const sharps = progression.filter((p) => /^\s*[A-G][#♯]/.test(p.label)).length
   const flats = progression.filter((p) => /^\s*[A-G][b♭]/.test(p.label)).length
-  const hint = flats > sharps ? 'flat' : sharps > flats ? 'sharp' : null
-  const inputSpelling = spellingForKey(estimateKeySignature(symbols, hint))
-  const shapeSpelling = spellingForKey(
-    estimateKeySignature(
-      (chosen?.symbols ?? []).map((s) => ({ chord: s.shape, weight: s.weight })),
-    ),
+  // The user's accidentals only tell us about the key they wrote, not a transposed one.
+  const hint = shiftBy !== 0 ? null : flats > sharps ? 'flat' : sharps > flats ? 'sharp' : null
+  const inputKey = estimateKeySignature(symbols, hint)
+  const shapeKey = estimateKeySignature(
+    (chosen?.symbols ?? []).map((s) => ({ chord: s.shape, weight: s.weight })),
   )
   return {
     mode: options.mode,
@@ -437,6 +446,7 @@ export function transform(
     alternatives,
     infeasibleCapos,
     items,
-    spelling: { input: inputSpelling, shape: shapeSpelling },
+    spelling: { input: spellingForKey(inputKey), shape: spellingForKey(shapeKey) },
+    key: { input: inputKey, shape: shapeKey },
   }
 }

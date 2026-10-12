@@ -1,12 +1,107 @@
 {
   "app": {
     "title": "BarreFree",
-    "tagline": "Turn any song into barre-free acoustic guitar chords.",
-    "status": "Early development: nothing to play with yet."
+    "tagline": "Turn any song into barre-free acoustic guitar chords."
   },
   "language": {
     "label": "Language",
     "en": "English",
     "tr": "Türkçe"
+  },
+  "settings": {
+    "title": "Settings",
+    "noteNames": "Chord names",
+    "letters": "C D E",
+    "solfege": "Do Re Mi",
+    "keepScreenOn": "Keep the screen on"
+  },
+  "input": {
+    "title": "Paste chords",
+    "placeholder": "Paste a chord sheet here: chords over lyrics, or ChordPro with inline [C] chords.",
+    "example": "Load example",
+    "clear": "Clear",
+    "empty": "No chords found yet.",
+    "found_one": "{{count}} chord found",
+    "found_other": "{{count}} chords found",
+    "format": {
+      "chords-over-lyrics": "chords over lyrics",
+      "chordpro": "ChordPro"
+    }
+  },
+  "controls": {
+    "label": "Arrangement options"
+  },
+  "mode": {
+    "label": "Difficulty",
+    "original": "Original",
+    "capo": "Capo",
+    "easy": "Easy",
+    "beginner": "Beginner",
+    "hint": {
+      "original": "Chords as written, barre shapes included.",
+      "capo": "Best capo position; the chords themselves never change.",
+      "easy": "Capo plus the nearest open chord for any remaining barre (F → Fmaj7, Bm → Bm7).",
+      "beginner": "Easy, plus simpler chords and as few different shapes as possible."
+    }
+  },
+  "slider": {
+    "label": "Ease ↔ fidelity",
+    "ease": "Easier",
+    "fidelity": "Closer to the original",
+    "stop": {
+      "0": "Easiest",
+      "1": "Easier",
+      "2": "Balanced",
+      "3": "Closer to the original",
+      "4": "As close as possible"
+    }
+  },
+  "capo": {
+    "label": "Capo position",
+    "none": "No capo",
+    "value": "Capo {{capo}}",
+    "summary": "{{barres}} barre · {{shapes}} shapes",
+    "noCapo": "I don't want a capo",
+    "infeasible": "No capo position can play every chord in this mode."
+  },
+  "transpose": {
+    "label": "Transpose",
+    "down": "Down a semitone",
+    "up": "Up a semitone",
+    "value": "{{value}}"
+  },
+  "key": {
+    "label": "Key"
+  },
+  "display": {
+    "label": "Show",
+    "shapes": "Shapes to play",
+    "sounding": "Sounding chords"
+  },
+  "sheet": {
+    "title": "Chords",
+    "label": "Chord sheet",
+    "capoNote": "Put the capo on fret {{capo}}. Chord names are the shapes you play.",
+    "noCapoNote": "No capo needed."
+  },
+  "diagrams": {
+    "title": "Shapes",
+    "label": "Chord diagram for {{chord}}",
+    "for": "for {{chord}}",
+    "previous": "Previous shape",
+    "next": "Next shape",
+    "position": "{{index}} / {{total}}",
+    "reset": "Use the suggested shape"
+  },
+  "actions": {
+    "copyText": "Copy text",
+    "copyChordPro": "Copy ChordPro",
+    "copied": "Copied"
+  },
+  "pwa": {
+    "offlineReady": "BarreFree now works offline.",
+    "updateAvailable": "A new version is available.",
+    "reload": "Reload",
+    "dismiss": "Close"
   }
 }

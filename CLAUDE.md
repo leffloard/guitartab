@@ -21,7 +21,10 @@ who cannot play barre chords.
 ## Architecture (details in docs/architecture.md)
 
 - `apps/web`: React 19 + Vite 8 SPA (PWA, i18n `tr`/`en`). All music theory runs client-side.
-- `packages/theory`: pure, deterministic TypeScript transform engine (parse, transpose, capo
+  `src/App.tsx` holds the state (text, mode, λ stop, capo pick, transpose, display) and derives
+  everything with `useMemo`; `src/lib/arrangement.ts` applies the user's preferred voicings and
+  names chords; `src/lib/diagram.ts` converts voicings to svguitar (string 1 = high E).
+- `packages/theory`: pure, deterministic TypeScript transform engine (chord sheets, parse, transpose, capo
   search, voicing selection, difficulty modes). No framework or I/O dependencies. Coverage ≥ 90%.
   Algorithms, formulas and the worked F example: docs/algorithms/transform-engine.md.
 - `packages/contracts`: TS types **generated** from the analyzer's JSON Schema. Never edit
@@ -50,6 +53,7 @@ Decisions already made, with their rationale in docs/architecture.md and docs/li
 corepack enable
 pnpm install
 pnpm dev                    # web on :5173, proxies /api to :8000
+pnpm build && pnpm --filter @barrefree/web preview   # production build incl. service worker
 pnpm lint                   # ESLint 10 flat config (type-aware, i18n literal-string rule)
 pnpm format / format:check  # Prettier
 pnpm typecheck              # tsc --noEmit for root *.ts and every package
@@ -96,7 +100,17 @@ docker compose --profile tunnel up -d   # + Cloudflare Tunnel (CLOUDFLARE_TUNNEL
   means same-day releases do not resolve; use caret ranges.
 - **Vitest 5** uses `test.projects`; `workspace` files are gone. Coverage options are honored
   only in the root config.
-- **UI strings** go in `apps/web/src/locales/{en,tr}.json`. A hardcoded JSX string is a lint error.
+- **UI strings** go in `apps/web/src/locales/{en,tr}.json` (same keys in both). A hardcoded JSX
+  string is a lint error; symbols such as ‹ › − + live in constants. Machine values (`value`,
+  `name` attributes) are exempt.
+- **Chord sheets** (`packages/theory/src/sheet.ts`): a line is a chord line only if it has no
+  ordinary words (one is tolerated next to ≥ 4 chords); rendering keeps every chord at or after
+  its original column and never touches lyrics. Example texts must use original lyrics only.
+- **PWA**: `registerType: 'prompt'` (never reload under a player); the chord library is inside
+  the precached JS bundle, so text mode works offline. Vitest aliases
+  `virtual:pwa-register/react` to `src/test/pwa-register-stub.ts`.
+- **svguitar** needs SVG layout APIs that jsdom lacks; `ChordDiagram` swallows draw errors so
+  component tests run, and real rendering is checked in Chromium with Playwright.
 - **Python:** strict mypy, ruff (incl. bandit `S` rules), pytest. The JSON Schema drift test runs
   in pytest.
 - **torch** (from M3) must come from the CPU wheel index (`download.pytorch.org/whl/cpu`).
@@ -115,8 +129,8 @@ docker compose --profile tunnel up -d   # + Cloudflare Tunnel (CLOUDFLARE_TUNNEL
 | --- | ----------------------------------------------------------------------------------------------- | ------- |
 | M0  | Monorepo skeleton, lint/format, Vitest + pytest, CI, Docker skeleton                            | ✅ done |
 | M1  | `packages/theory` + `data/voicings`: parser, transpose, voicings, scoring, capo search, 4 modes | ✅ done |
-| M2  | Web: text mode end to end, diagrams, mode/λ/capo UI, i18n, PWA                                  | next    |
-| M3  | Analyzer: upload → decode → beats → key → Chordino; job queue + SSE                             |         |
+| M2  | Web: text mode end to end, diagrams, mode/λ/capo UI, i18n, PWA                                  | ✅ done |
+| M3  | Analyzer: upload → decode → beats → key → Chordino; job queue + SSE                             | next    |
 | M4  | Synced player, speed/A-B loop, confidence marks, manual edits, IndexedDB library                |         |
 | M5  | BTC (+ lv-chordia) recognizers, Demucs, evaluation report                                       |         |
 | M6  | URL import (YouTube + Spotify metadata → search → confirm), feature flag                        |         |
