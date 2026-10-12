@@ -1,0 +1,21 @@
+{
+  "name": "@barrefree/theory",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Pure, framework-free music-theory transform engine: chord parsing, transposition, capo search and barre-free voicing selection.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@fast-check/vitest": "catalog:",
+    "fast-check": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

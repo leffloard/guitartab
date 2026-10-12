@@ -1,0 +1,12 @@
+# Force LF everywhere: the project is developed and deployed on Linux containers,
+# including Docker inside WSL2 on Windows hosts, where CRLF breaks shell scripts.
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.png binary
+*.jpg binary
+*.wav binary
+*.mp3 binary
+*.flac binary
+*.sf2 binary
+*.sf3 binary
+*.onnx binary

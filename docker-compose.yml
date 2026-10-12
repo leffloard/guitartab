@@ -1,0 +1,50 @@
+# BarreFree: production-like local stack.
+#   docker compose up --build              # http://localhost:8000
+#   docker compose --profile tunnel up -d  # also publish through a Cloudflare Tunnel
+name: barrefree
+
+x-app: &app
+  build:
+    context: .
+    args:
+      NODE_IMAGE: ${NODE_IMAGE:-node:24-slim}
+      PYTHON_IMAGE: ${PYTHON_IMAGE:-python:3.12-slim-trixie}
+  image: barrefree:local
+  restart: unless-stopped
+  env_file:
+    - path: .env
+      required: false
+  environment:
+    DATA_DIR: /data
+    ENABLE_URL_IMPORT: ${ENABLE_URL_IMPORT:-false}
+  volumes:
+    - jobs-data:/data
+    - model-cache:/models
+
+services:
+  api:
+    <<: *app
+    ports:
+      # Bound to localhost only; expose publicly through the tunnel or a reverse proxy.
+      - '127.0.0.1:${BARREFREE_PORT:-8000}:8000'
+
+  worker:
+    <<: *app
+    command: ['barrefree-worker']
+    healthcheck:
+      disable: true
+
+  cloudflared:
+    profiles: ['tunnel']
+    image: cloudflare/cloudflared:2026.10.0
+    restart: unless-stopped
+    command: ['tunnel', '--no-autoupdate', 'run']
+    environment:
+      # Create a tunnel in the Cloudflare dashboard, point its public hostname to http://api:8000.
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on:
+      - api
+
+volumes:
+  jobs-data:
+  model-cache:

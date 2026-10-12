@@ -1,0 +1,36 @@
+# Node
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.vite/
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local, never-committed data: your own recordings, .lab annotations, model weights, caches
+local-data/
+/models/
+.cache/
+*.wav
+*.mp3
+*.flac
+*.m4a
+*.ogg
+
+# Editors / OS
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.*
+!.env.example

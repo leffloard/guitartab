@@ -1,0 +1,12 @@
+{
+  "app": {
+    "title": "BarreFree",
+    "tagline": "Turn any song into barre-free acoustic guitar chords.",
+    "status": "Early development: nothing to play with yet."
+  },
+  "language": {
+    "label": "Language",
+    "en": "English",
+    "tr": "Türkçe"
+  }
+}

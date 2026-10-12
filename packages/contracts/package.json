@@ -1,0 +1,25 @@
+{
+  "name": "@barrefree/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "description": "TypeScript types generated from the analyzer's JSON Schema (the analyzer's Pydantic models are the source of truth).",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema/analysis.schema.json": "./schema/analysis.schema.json"
+  },
+  "scripts": {
+    "generate": "node scripts/generate.ts && prettier --write src/analysis.gen.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "ajv": "catalog:",
+    "json-schema-to-typescript": "catalog:",
+    "prettier": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

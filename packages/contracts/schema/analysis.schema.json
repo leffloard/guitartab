@@ -1,0 +1,221 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/leffloard/guitartab/schemas/analysis.schema.json",
+  "$defs": {
+    "AnalysisMeta": {
+      "additionalProperties": false,
+      "properties": {
+        "recognizer": {
+          "description": "Chord recognizer implementation, e.g. 'chordino'.",
+          "type": "string"
+        },
+        "separated": {
+          "description": "Whether source separation ran before chord recognition.",
+          "type": "boolean"
+        },
+        "processingSec": {
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "recognizer",
+        "separated",
+        "processingSec"
+      ],
+      "title": "AnalysisMeta",
+      "type": "object"
+    },
+    "ChordSegment": {
+      "additionalProperties": false,
+      "properties": {
+        "start": {
+          "description": "Start time in seconds.",
+          "minimum": 0,
+          "type": "number"
+        },
+        "end": {
+          "description": "End time in seconds.",
+          "minimum": 0,
+          "type": "number"
+        },
+        "label": {
+          "description": "Chord label in Harte syntax, e.g. 'C:maj', 'A:min7', 'G:7/3', 'N'.",
+          "examples": [
+            "A:min",
+            "G:7/3",
+            "N"
+          ],
+          "minLength": 1,
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "label",
+        "confidence"
+      ],
+      "title": "ChordSegment",
+      "type": "object"
+    },
+    "Key": {
+      "additionalProperties": false,
+      "properties": {
+        "tonic": {
+          "examples": [
+            "A",
+            "F#",
+            "Bb"
+          ],
+          "pattern": "^[A-G](#|b)?$",
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "major",
+            "minor"
+          ],
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "tonic",
+        "mode",
+        "confidence"
+      ],
+      "title": "Key",
+      "type": "object"
+    },
+    "Note": {
+      "additionalProperties": false,
+      "properties": {
+        "start": {
+          "description": "Start time in seconds.",
+          "minimum": 0,
+          "type": "number"
+        },
+        "end": {
+          "description": "End time in seconds.",
+          "minimum": 0,
+          "type": "number"
+        },
+        "midi": {
+          "maximum": 127,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "velocity": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "midi",
+        "velocity"
+      ],
+      "title": "Note",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Raw analysis of one audio file.",
+  "properties": {
+    "version": {
+      "const": 1,
+      "default": 1,
+      "type": "integer"
+    },
+    "durationSec": {
+      "minimum": 0,
+      "type": "number"
+    },
+    "tempoBpm": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "timeSignature": {
+      "anyOf": [
+        {
+          "pattern": "^\\d+/\\d+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "examples": [
+        "4/4"
+      ]
+    },
+    "key": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Key"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "beats": {
+      "description": "Beat times in seconds.",
+      "items": {
+        "type": "number"
+      },
+      "type": "array"
+    },
+    "chords": {
+      "items": {
+        "$ref": "#/$defs/ChordSegment"
+      },
+      "type": "array"
+    },
+    "notes": {
+      "description": "Transcribed notes (only for the tab mode).",
+      "items": {
+        "$ref": "#/$defs/Note"
+      },
+      "type": "array"
+    },
+    "meta": {
+      "$ref": "#/$defs/AnalysisMeta"
+    }
+  },
+  "required": [
+    "version",
+    "durationSec",
+    "tempoBpm",
+    "timeSignature",
+    "key",
+    "beats",
+    "chords",
+    "notes",
+    "meta"
+  ],
+  "title": "AnalysisResult",
+  "type": "object"
+}

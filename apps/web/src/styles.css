@@ -1,0 +1,18 @@
+:root {
+  color-scheme: dark;
+  --bg: #111;
+  --fg: #eee;
+  font-family: system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.app {
+  max-width: 48rem;
+  margin: 0 auto;
+  padding: 1rem;
+}

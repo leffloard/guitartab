@@ -1,0 +1,12 @@
+{
+  "app": {
+    "title": "BarreFree",
+    "tagline": "Her şarkıyı barresiz akustik gitar akorlarına çevir.",
+    "status": "Erken geliştirme aşaması: henüz denenecek bir şey yok."
+  },
+  "language": {
+    "label": "Dil",
+    "en": "English",
+    "tr": "Türkçe"
+  }
+}
