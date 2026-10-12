@@ -37,7 +37,15 @@ class SpaStaticFiles(StaticFiles):
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
-    app = FastAPI(title="BarreFree analyzer", version=__version__)
+    # Everything the server answers lives under /api/; every other path belongs to the web
+    # app, whose service worker answers navigations with index.html.
+    app = FastAPI(
+        title="BarreFree analyzer",
+        version=__version__,
+        docs_url="/api/docs",
+        redoc_url=None,
+        openapi_url="/api/openapi.json",
+    )
 
     @app.get("/api/health")
     def health() -> Health:

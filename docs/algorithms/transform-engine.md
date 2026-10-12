@@ -75,6 +75,10 @@ Spelling rules:
   a double accidental.
 - Chromatic diminished chords are spelled with sharps (G#dim, D#dim7).
 
+The key of the shapes is the input key moved down by the capo (and the tuning's shift), not a
+second estimate: the shapes are exactly the input chords transposed, and a second estimate could
+break a tie the other way (C / Am for the shapes while the song sounds in A / F#m under capo 4).
+
 ## 2. Voicing library (`data/voicings`)
 
 **Seed:** tombatossals/chords-db (MIT), pinned to a commit and a SHA-256.
@@ -258,6 +262,43 @@ lowers the weighted fidelity. This holds for any exact optimizer and is property
 
 Neither has a full or mini barre. In `capo` mode, F–C–G–Am moves to capo 5 (C–G–D–Em shapes),
 where every chord is exact.
+
+## 6. Chord sheets (`sheet.ts`)
+
+`parseChordSheet` keeps every line and classifies it, in this order:
+
+1. blank; ChordPro directive (`{title: ...}`, `{capo: 2}`); tab line (`e|--0--1--|`);
+2. ChordPro line with inline chords (`[F]Walking [(Bb)]home`, annotations `[*Coda]`);
+3. plain header field (`Key: F`, `Ton: Am`, `Capo 2`, `Kapo: 2. perde`, `Tuning: ...`), so
+   that "E A D G B E" or "F" in a header never become chords;
+4. chord line; 5. section heading; 6. lyrics.
+
+A **chord line** is split into atoms with their columns: bars (`|`, `|:`, `:|`), bracketed
+repeats (`(x2)`, `[x2]`, `(2 kez)`), and runs of other characters. Wrapping punctuation is
+peeled off (`(F)` → `(`, `F`, `)`; `Am,` → `Am`, `,`) unless it belongs to the chord
+(`C(add9)`). An atom written right after the previous one is marked `attached`. A leading
+section label is one mark: `[Verse 1]`, `(Intro)`, `Intro`, `Intro -`, `Solo Gitar:`,
+`1. Kıta:`. The line is a chord line when it has a chord and no ordinary words (one word is
+tolerated next to four or more chords), which keeps "A man, a plan" and "Am I wrong" lyrics.
+
+Section words are English and Turkish. JavaScript's case-insensitive matching does not fold
+İ→i or I→ı, so headings are also tried in Turkish lower case (`GİRİŞ`, `KITA 2`).
+
+**Rendering** swaps names and keeps the layout: an item never starts left of its original
+column, a longer name pushes the next item right just enough for one space, and attached items
+stay attached (`|Fmaj7|Bm7|`, `(Fmaj7)`). Lyrics are never changed; with an identity replacer
+every line renders exactly as written.
+
+**ChordPro export** works from the parsed lines, not the rendered text: chords are inlined into
+the following lyric at the columns they were written at (padding a short lyric), a chord in
+parentheses stays one chord (`[(Fmaj7)]`), labels and repeats become annotations (`[*x2]`),
+and bars are dropped. A chord line without lyrics keeps its marks as text
+(`Intro: [Am] [G] (x2)`).
+
+**Source capo.** `{capo: n}` or a "Capo n" header means the chords are shapes over that capo.
+The web app adds it to the transposition before arranging, hides the source's capo lines, and
+writes its own capo (a `Capo: n` header in text copies, `{capo: n}` in ChordPro) only when the
+names shown are shapes.
 
 ## Performance
 

@@ -16,7 +16,7 @@ import {
   type Mode,
   type TransformResult,
 } from '../src/transform.ts'
-import { spellPitchClass } from '../src/pitch.ts'
+import { mod12, spellPitchClass } from '../src/pitch.ts'
 import { EB_STANDARD } from '../src/tuning.ts'
 import { playedNotes } from '../src/voicing.ts'
 import { commonSymbol, simpleSymbol } from './arbitraries.ts'
@@ -288,6 +288,20 @@ describe('items, no-chord segments and errors', () => {
     expect(spell('F Bb C Db F')).toEqual(['F', 'Bb', 'C', 'Db', 'F'])
     expect(spell('Gb Db Ebm')).toEqual(['Gb', 'Db', 'Ebm'])
     expect(spell('F# C# D#m')).toEqual(['F#', 'C#', 'D#m'])
+  })
+
+  it('derives the shape key from the sounding key and the capo', () => {
+    for (const capo of [1, 4]) {
+      const r = transform(labels('C#m', 'F#m', 'G#7', 'A'), { mode: 'capo', capo })
+      expect(r.option?.capo).toBe(capo)
+      expect(mod12(r.key.shape.tonic + capo)).toBe(r.key.input.tonic)
+    }
+    const eb = transform(labels('C#m', 'F#m', 'G#7', 'A'), {
+      mode: 'capo',
+      capo: 2,
+      tuning: EB_STANDARD,
+    })
+    expect(mod12(eb.key.shape.tonic + 2 - 1)).toBe(eb.key.input.tonic)
   })
 })
 

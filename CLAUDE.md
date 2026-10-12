@@ -103,9 +103,14 @@ docker compose --profile tunnel up -d   # + Cloudflare Tunnel (CLOUDFLARE_TUNNEL
 - **UI strings** go in `apps/web/src/locales/{en,tr}.json` (same keys in both). A hardcoded JSX
   string is a lint error; symbols such as ‹ › − + live in constants. Machine values (`value`,
   `name` attributes) are exempt.
-- **Chord sheets** (`packages/theory/src/sheet.ts`): a line is a chord line only if it has no
-  ordinary words (one is tolerated next to ≥ 4 chords); rendering keeps every chord at or after
-  its original column and never touches lyrics. Example texts must use original lyrics only.
+- **Chord sheets** (`packages/theory/src/sheet.ts`, details in docs/algorithms/transform-engine.md
+  §6): a line is a chord line only if it has no ordinary words (one is tolerated next to ≥ 4
+  chords); bars, wrapping parentheses, repeats and a leading section label are marks. Header
+  fields (`Key:`, `Capo 2`) are `meta` lines, never chords. Rendering keeps every chord at or
+  after its original column, keeps attached marks attached and never touches lyrics. A source
+  capo is folded into the transposition. Example texts must use original lyrics only.
+- **URL space:** the server answers only under `/api/` (FastAPI docs at `/api/docs`); every other
+  path is the SPA, and the service worker's navigation denylist is `/^\/api\//`.
 - **PWA**: `registerType: 'prompt'` (never reload under a player); the chord library is inside
   the precached JS bundle, so text mode works offline. Vitest aliases
   `virtual:pwa-register/react` to `src/test/pwa-register-stub.ts`.

@@ -23,6 +23,7 @@
     "empty": "No chords found yet.",
     "found_one": "{{count}} chord found",
     "found_other": "{{count}} chords found",
+    "sourceCapo": "written for capo {{capo}}",
     "format": {
       "chords-over-lyrics": "chords over lyrics",
       "chordpro": "ChordPro"
@@ -60,7 +61,10 @@
     "label": "Capo position",
     "none": "No capo",
     "value": "Capo {{capo}}",
-    "summary": "{{barres}} barre · {{shapes}} shapes",
+    "barres_one": "{{count}} barre",
+    "barres_other": "{{count}} barres",
+    "shapes_one": "{{count}} shape",
+    "shapes_other": "{{count}} shapes",
     "noCapo": "I don't want a capo",
     "infeasible": "No capo position can play every chord in this mode."
   },
@@ -82,11 +86,12 @@
     "title": "Chords",
     "label": "Chord sheet",
     "capoNote": "Put the capo on fret {{capo}}. Chord names are the shapes you play.",
+    "capoNoteSounding": "Put the capo on fret {{capo}}. Chord names are what you hear; the diagrams show the shapes to play.",
     "noCapoNote": "No capo needed."
   },
   "diagrams": {
     "title": "Shapes",
-    "label": "Chord diagram for {{chord}}",
+    "label": "Chord diagram for {{chord}}: {{frets}} (low E to high E)",
     "for": "for {{chord}}",
     "previous": "Previous shape",
     "next": "Next shape",
@@ -97,6 +102,9 @@
     "copyText": "Copy text",
     "copyChordPro": "Copy ChordPro",
     "copied": "Copied"
+  },
+  "export": {
+    "capoHeader": "Capo: {{capo}}"
   },
   "pwa": {
     "offlineReady": "BarreFree now works offline.",

@@ -69,5 +69,8 @@ Chordino vamp plugin directly instead.
   `null` means muted and `0` means open. svguitar and alphaTex number strings the other way
   (string 1 = high E), so convert only at the rendering boundary.
 - **Chord labels on the wire** use Harte et al. (2005) syntax (`C:maj`, `A:min7`, `G:7/3`, `N`).
+- **URL space.** Everything the server answers lives under `/api/`, including the FastAPI docs
+  (`/api/docs`, `/api/openapi.json`). Every other path belongs to the web app, whose service
+  worker answers navigations with `index.html` (its denylist is `/^\/api\//`).
 - **Language.** Code, comments, commit messages and docs are in English. The UI is fully
   localized (`tr`, `en`). Hardcoded JSX strings are a lint error (`i18next/no-literal-string`).

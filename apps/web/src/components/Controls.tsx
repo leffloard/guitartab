@@ -22,6 +22,7 @@ interface Props {
 }
 
 const SIGNS = { minus: '−', plus: '+' } as const
+const SEPARATOR = ' · '
 
 export function Controls(p: Props) {
   const { t } = useTranslation()
@@ -63,26 +64,35 @@ export function Controls(p: Props) {
         </span>
       </label>
 
-      <div className="capo" role="group" aria-label={t('capo.label')}>
+      <div className="capo">
         {p.infeasible ? (
           <p className="warning">{t('capo.infeasible')}</p>
         ) : (
-          p.alternatives.map((o) => (
-            <button
-              key={o.capo}
-              type="button"
-              aria-pressed={o.capo === (p.capo ?? p.alternatives[0]?.capo)}
-              onClick={() => p.onCapo(o.capo)}
-            >
-              <strong>{o.capo === 0 ? t('capo.none') : t('capo.value', { capo: o.capo })}</strong>
-              <small>
-                {t('capo.summary', {
-                  barres: o.fullBarres + o.miniBarres,
-                  shapes: o.distinctShapes,
-                })}
-              </small>
-            </button>
-          ))
+          <fieldset className="capo-options">
+            <legend className="visually-hidden">{t('capo.label')}</legend>
+            {p.alternatives.map((o) => {
+              const checked = o.capo === (p.capo ?? p.alternatives[0]?.capo)
+              return (
+                <label key={o.capo} className={checked ? 'is-active' : undefined}>
+                  <input
+                    type="radio"
+                    name="capo"
+                    value={o.capo}
+                    checked={checked}
+                    onChange={() => p.onCapo(o.capo)}
+                  />
+                  <strong>
+                    {o.capo === 0 ? t('capo.none') : t('capo.value', { capo: o.capo })}
+                  </strong>{' '}
+                  <small>
+                    {t('capo.barres', { count: o.fullBarres + o.miniBarres })}
+                    {SEPARATOR}
+                    {t('capo.shapes', { count: o.distinctShapes })}
+                  </small>
+                </label>
+              )
+            })}
+          </fieldset>
         )}
         <label className="check">
           <input

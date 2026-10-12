@@ -1,15 +1,14 @@
 import {
-  chordKey,
+  isCapoLine,
   LAMBDA_STOPS,
   parseChordSheet,
   renderChordSheet,
   renderedToText,
   sheetProgression,
-  simplify,
   spellPitchClass,
   toChordPro,
+  toSolfege,
   transform,
-  MODE_PRESETS,
   type ChordToken,
   type Mode,
 } from '@barrefree/theory'
@@ -29,6 +28,8 @@ import {
   choiceName,
   effectiveChoices,
   keyName,
+  playsExactly,
+  symbolKey,
   type ChordDisplay,
   type EffectiveChoice,
 } from './lib/arrangement'
@@ -47,7 +48,7 @@ export function App() {
   const [mode, setMode] = useState<Mode>('easy')
   const [lambdaIndex, setLambdaIndex] = useState(DEFAULT_LAMBDA_INDEX)
   const [noCapo, setNoCapo] = useState(false)
-  const [capo, setCapo] = useState<number | null>(null)
+  const [capoPick, setCapoPick] = useState<{ capo: number; for: string } | null>(null)
   const [shift, setShift] = useState(0)
   const [display, setDisplay] = useState<ChordDisplay>('shapes')
   const [selected, setSelected] = useState<string | null>(null)
@@ -55,23 +56,30 @@ export function App() {
 
   const setText = useCallback((value: string) => {
     setTextState(value)
-    setCapo(null)
+    setSelected(null)
     writeStored(DRAFT_KEY, value === '' ? undefined : value)
   }, [])
 
   const deferredText = useDeferredValue(text)
   const sheet = useMemo(() => parseChordSheet(deferredText), [deferredText])
+  // Chords written for a capo are shapes: what they sound like is that many semitones higher.
+  const sourceCapo = sheet.meta.capo ?? 0
   const lambda = LAMBDA_STOPS[lambdaIndex] ?? 10
+  // A capo pick holds only for the arrangement it was made for; editing lyrics keeps it.
+  const arrangement = [mode, noCapo, shift, sourceCapo, ...sheet.chords.map((c) => c.text)].join(
+    '\u0000',
+  )
+  const capo = capoPick?.for === arrangement ? capoPick.capo : null
   const result = useMemo(
     () =>
       transform(sheetProgression(sheet), {
         mode,
         lambda,
-        transpose: shift,
+        transpose: shift + sourceCapo,
         ...(noCapo ? { capoRange: [0, 0] as const } : {}),
         ...(capo === null ? {} : { capo }),
       }),
-    [sheet, mode, lambda, shift, noCapo, capo],
+    [sheet, mode, lambda, shift, sourceCapo, noCapo, capo],
   )
   const choices = useMemo(
     () => effectiveChoices(result, lambda, preferences),
@@ -82,43 +90,52 @@ export function App() {
   const names = { display, noteNames: settings.noteNames } as const
   const choiceOfToken = (token: ChordToken): EffectiveChoice | undefined => {
     const item = result.items[token.index]
-    if (!item?.input) return undefined
-    return choices.get(chordKey(simplify(item.input, MODE_PRESETS[mode].simplify)))
+    return item?.input ? choices.get(symbolKey(result, item.input)) : undefined
   }
   const replace = (token: ChordToken) => {
     const choice = choiceOfToken(token)
     return choice ? choiceName(choice, result, names) : token.text
   }
-  const lines = renderChordSheet(sheet, replace)
-  const substituted = new Set(
-    [...choices.entries()].filter(([, c]) => c.substituted).map(([key]) => key),
+  // The source's own capo lines are replaced by the capo note above the sheet.
+  const shown = useMemo(
+    () => ({ ...sheet, lines: sheet.lines.filter((l) => !isCapoLine(l)) }),
+    [sheet],
   )
+  const lines = renderChordSheet(shown, replace)
   const symbolOfToken = (index: number) => {
-    const token = sheet.chords[index]
-    const choice = token && choiceOfToken(token)
-    return choice ? chordKey(choice.chord) : null
+    const item = result.items[index]
+    return item?.input && choices.has(symbolKey(result, item.input))
+      ? symbolKey(result, item.input)
+      : null
+  }
+  const isChanged = (index: number) => {
+    const item = result.items[index]
+    const choice = item?.input ? choices.get(symbolKey(result, item.input)) : undefined
+    return item?.input && choice ? !playsExactly(item.input, choice, result) : false
   }
 
   const option = result.option
+  const capoOn = option !== null && option.capo > 0
+  const shapesShown = display === 'shapes' && capoOn
   const keyLabel =
     sheet.chords.length > 0
-      ? keyName(
-          display === 'shapes' && option && option.capo > 0 ? result.key.shape : result.key.input,
-          (pc) =>
-            spellPitchClass(
-              pc,
-              display === 'shapes' && option && option.capo > 0
-                ? result.spelling.shape
-                : result.spelling.input,
-            ),
-        )
+      ? keyName(shapesShown ? result.key.shape : result.key.input, (pc) => {
+          const name = spellPitchClass(
+            pc,
+            shapesShown ? result.spelling.shape : result.spelling.input,
+          )
+          return settings.noteNames === 'solfege' ? toSolfege(name) : name
+        })
       : null
 
   const copy = async (kind: 'text' | 'chordpro') => {
+    // Shapes need the capo to sound right; sounding names must not carry one.
+    const capoForCopy = shapesShown && option ? option.capo : 0
     const content =
       kind === 'text'
-        ? renderedToText(lines)
-        : toChordPro(sheet, replace, option && option.capo > 0 ? { capo: option.capo } : {})
+        ? (capoForCopy > 0 ? `${t('export.capoHeader', { capo: capoForCopy })}\n\n` : '') +
+          renderedToText(lines)
+        : toChordPro(sheet, replace, capoForCopy > 0 ? { capo: capoForCopy } : {})
     try {
       await navigator.clipboard.writeText(content)
       setCopied(kind)
@@ -145,25 +162,16 @@ export function App() {
           <>
             <Controls
               mode={mode}
-              onMode={(m) => {
-                setMode(m)
-                setCapo(null)
-              }}
+              onMode={setMode}
               lambdaIndex={lambdaIndex}
               onLambdaIndex={setLambdaIndex}
               alternatives={result.alternatives}
               capo={capo}
-              onCapo={setCapo}
+              onCapo={(c) => setCapoPick({ capo: c, for: arrangement })}
               noCapo={noCapo}
-              onNoCapo={(v) => {
-                setNoCapo(v)
-                setCapo(null)
-              }}
+              onNoCapo={setNoCapo}
               transpose={shift}
-              onTranspose={(v) => {
-                setShift(Math.max(-11, Math.min(11, v)))
-                setCapo(null)
-              }}
+              onTranspose={(v) => setShift(Math.max(-11, Math.min(11, v)))}
               display={display}
               onDisplay={setDisplay}
               keyName={keyLabel}
@@ -184,15 +192,17 @@ export function App() {
               </div>
               {option && (
                 <p className="capo-note">
-                  {option.capo > 0
-                    ? t('sheet.capoNote', { capo: option.capo })
+                  {capoOn
+                    ? t(display === 'shapes' ? 'sheet.capoNote' : 'sheet.capoNoteSounding', {
+                        capo: option.capo,
+                      })
                     : t('sheet.noCapoNote')}
                 </p>
               )}
               <SheetView
                 lines={lines}
                 symbolOfToken={symbolOfToken}
-                substitutedSymbols={substituted}
+                isChanged={isChanged}
                 selected={selected}
                 onSelect={(key) => setSelected((s) => (s === key ? null : key))}
               />

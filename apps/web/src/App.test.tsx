@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from 'i18next'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { App } from './App'
 import { LANGUAGE_STORAGE_KEY } from './i18n'
@@ -64,7 +64,9 @@ describe('App', () => {
     expect(screen.getByText('No capo needed.')).toBeInTheDocument()
     // Substitutes are marked in the sheet and get a diagram card.
     expect(screen.getAllByRole('button', { name: 'Fmaj7' })[0]).toHaveClass('is-substituted')
-    expect(screen.getByRole('img', { name: 'Chord diagram for Fmaj7' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('img', { name: 'Chord diagram for Fmaj7: x x 3 2 1 0 (low E to high E)' }),
+    ).toBeInTheDocument()
     expect(screen.getByText('for F')).toBeInTheDocument()
   })
 
@@ -81,18 +83,27 @@ describe('App', () => {
     expect(sheetText()).toContain('F  C  G  Am')
   })
 
-  it('offers capo alternatives and a no-capo option', async () => {
+  it('offers capo alternatives as a radio group and a no-capo option', async () => {
     render(<App />)
     await paste('F  C  G  Am\n')
     await userEvent.click(screen.getByRole('radio', { name: 'Capo' }))
     const capoGroup = screen.getByRole('group', { name: 'Capo position' })
-    const buttons = within(capoGroup).getAllByRole('button')
-    expect(buttons[0]).toHaveTextContent('Capo 5')
-    expect(buttons[0]).toHaveAttribute('aria-pressed', 'true')
-    await userEvent.click(within(capoGroup).getByRole('button', { name: /No capo/ }))
+    const options = within(capoGroup).getAllByRole('radio')
+    expect(options[0]).toHaveAccessibleName(/^Capo 5/)
+    expect(options[0]).toBeChecked()
+    await userEvent.click(within(capoGroup).getByRole('radio', { name: /No capo/ }))
     expect(screen.getByText('No capo needed.')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('checkbox', { name: "I don't want a capo" }))
-    expect(within(capoGroup).getAllByRole('button')).toHaveLength(1)
+    expect(within(capoGroup).getAllByRole('radio')).toHaveLength(1)
+  })
+
+  it('pluralises the capo summary', async () => {
+    render(<App />)
+    await paste('C\nhello there\n')
+    const group = screen.getByRole('group', { name: 'Capo position' })
+    expect(within(group).getAllByRole('radio')[0]).toHaveAccessibleName(
+      'No capo 0 barres · 1 shape',
+    )
   })
 
   it('moves the ease/fidelity slider between fixed stops', async () => {
@@ -171,5 +182,96 @@ describe('App', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Clear' }))
     expect(screen.getByText('No chords found yet.')).toBeInTheDocument()
     expect(localStorage.getItem('barrefree.draft')).toBeNull()
+  })
+
+  describe('review regressions', () => {
+    let clipboard: string[] = []
+    beforeEach(() => {
+      clipboard = []
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: { writeText: vi.fn((text: string) => Promise.resolve(void clipboard.push(text))) },
+      })
+    })
+    afterEach(() => vi.restoreAllMocks())
+
+    it('reads a source capo: the chords are shapes and the stale directive is hidden', async () => {
+      render(<App />)
+      await paste('{capo: 3}\n[G]Walking down the [C]road today\n')
+      expect(screen.getByText(/written for capo 3/)).toBeInTheDocument()
+      expect(sheetText()).not.toContain('{capo')
+      await userEvent.click(screen.getByRole('radio', { name: 'Sounding chords' }))
+      // G and C under capo 3 sound as Bb and Eb.
+      expect(sheetText()).toMatch(/^Bb\s+Eb/)
+    })
+
+    it('words the capo note and the copies for the view that is shown', async () => {
+      render(<App />)
+      await paste('F  C  G  Am\nla la la la\n')
+      await userEvent.click(screen.getByRole('radio', { name: 'Capo' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Copy text' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Copy ChordPro' }))
+      expect(clipboard[0]).toBe('Capo: 5\n\nC  G  D  Em\nla la la la\n')
+      expect(clipboard[1]).toBe('{capo: 5}\n[C]la [G]la [D]la [Em]la\n')
+
+      await userEvent.click(screen.getByRole('radio', { name: 'Sounding chords' }))
+      expect(screen.getByText(/Chord names are what you hear/)).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: 'Copy text' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Copy ChordPro' }))
+      expect(clipboard[2]).toBe('F  C  G  Am\nla la la la\n')
+      expect(clipboard[3]).toBe('[F]la [C]la [G]la [Am]la\n')
+    })
+
+    it('keeps the capo pick while lyrics change, and drops it when the chords change', async () => {
+      render(<App />)
+      await paste('F  C  G  Am\nla la\n')
+      await userEvent.click(screen.getByRole('radio', { name: 'Capo' }))
+      await userEvent.click(screen.getByRole('radio', { name: /No capo/ }))
+      await paste('F  C  G  Am\nla la la\n')
+      expect(screen.getByRole('radio', { name: /No capo/ })).toBeChecked()
+      await paste('F  C  G  Am  F\nla la la\n')
+      expect(screen.getByRole('radio', { name: /^Capo 5/ })).toBeChecked()
+    })
+
+    it('marks simplified chords and names the written chord on the card (beginner)', async () => {
+      render(<App />)
+      await paste('Cmaj9    Am9    G\n')
+      await userEvent.click(screen.getByRole('radio', { name: 'Beginner' }))
+      expect(sheetText()).toMatch(/^Cmaj7\s+Am7\s+G/)
+      expect(screen.getAllByRole('button', { name: 'Cmaj7' })[0]).toHaveClass('is-substituted')
+      expect(screen.getAllByRole('button', { name: 'G' })[0]).not.toHaveClass('is-substituted')
+      expect(screen.getByText('for Cmaj9')).toBeInTheDocument()
+      expect(screen.getByText('for Am9')).toBeInTheDocument()
+    })
+
+    it('writes the key in Do Re Mi too', async () => {
+      render(<App />)
+      await paste('C  G  Am  F\n')
+      await userEvent.click(screen.getByText('Settings'))
+      await userEvent.selectOptions(
+        screen.getByRole('combobox', { name: 'Chord names' }),
+        'solfege',
+      )
+      expect(screen.getByText('Do / Lam')).toBeInTheDocument()
+    })
+
+    it('clears the selection and focuses the text box after Clear', async () => {
+      render(<App />)
+      await paste('F  C\n')
+      await userEvent.click(screen.getAllByRole('button', { name: 'C' })[0] as HTMLElement)
+      await userEvent.click(screen.getByRole('button', { name: 'Clear' }))
+      expect(screen.getByRole('textbox', { name: 'Paste chords' })).toHaveFocus()
+      await paste('F  C\n')
+      expect(document.querySelector('.diagram-card.is-selected')).toBeNull()
+    })
+
+    it('keeps focus in the card after resetting a picked shape', async () => {
+      render(<App />)
+      await paste('F  C\n')
+      const card = document.querySelectorAll<HTMLElement>('.diagram-card')[0] as HTMLElement
+      await userEvent.click(within(card).getByRole('button', { name: 'Next shape' }))
+      await userEvent.click(within(card).getByRole('button', { name: 'Use the suggested shape' }))
+      expect(within(card).getByRole('button', { name: 'Next shape' })).toHaveFocus()
+    })
   })
 })

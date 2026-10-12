@@ -11,7 +11,7 @@ import {
   type Chord,
   type SimplifyLevel,
 } from './chord.ts'
-import { estimateKeySignature, spellingForKey, type KeySignature } from './key.ts'
+import { estimateKeySignature, spellingForKey, transposeKey, type KeySignature } from './key.ts'
 import {
   generateVoicings,
   getDefaultLibrary,
@@ -435,9 +435,9 @@ export function transform(
   // The user's accidentals only tell us about the key they wrote, not a transposed one.
   const hint = shiftBy !== 0 ? null : flats > sharps ? 'flat' : sharps > flats ? 'sharp' : null
   const inputKey = estimateKeySignature(symbols, hint)
-  const shapeKey = estimateKeySignature(
-    (chosen?.symbols ?? []).map((s) => ({ chord: s.shape, weight: s.weight })),
-  )
+  // The shapes are the chords moved down by the capo, so their key is too. Estimating it
+  // again could break an enharmonic or relative-key tie the other way.
+  const shapeKey = chosen ? transposeKey(inputKey, -(chosen.capo + shift)) : inputKey
   return {
     mode: options.mode,
     lambda,

@@ -41,9 +41,12 @@ export function DiagramList({ choices, result, names, selected, onPick }: Props)
           const index = choice.candidateIndex
           const step = (delta: number) => {
             if (total === 0) return
-            const next = choice.candidates[(Math.max(index, 0) + delta + total) % total]
+            // From outside the list, "next" starts at the first shape and "previous" at the last.
+            const from = index >= 0 ? index : delta > 0 ? -1 : total
+            const next = choice.candidates[(from + delta + total) % total]
             if (next) onPick(choice, next.entry.voicing.id)
           }
+          const frets = choice.voicing.frets.map((f) => f ?? 'x').join(' ')
           return (
             <li
               key={choice.preferenceKey}
@@ -56,7 +59,10 @@ export function DiagramList({ choices, result, names, selected, onPick }: Props)
                   ? t('diagrams.for', { chord: requested })
                   : ' '}
               </div>
-              <ChordDiagram voicing={choice.voicing} label={t('diagrams.label', { chord: name })} />
+              <ChordDiagram
+                voicing={choice.voicing}
+                label={t('diagrams.label', { chord: name, frets })}
+              />
               {total > 1 && (
                 <div className="diagram-nav">
                   <button
@@ -66,14 +72,27 @@ export function DiagramList({ choices, result, names, selected, onPick }: Props)
                   >
                     {ARROWS.previous}
                   </button>
-                  <span>{t('diagrams.position', { index: index + 1, total })}</span>
+                  <span aria-live="polite">
+                    {t('diagrams.position', { index: index + 1, total })}
+                  </span>
                   <button type="button" onClick={() => step(1)} aria-label={t('diagrams.next')}>
                     {ARROWS.next}
                   </button>
                 </div>
               )}
               {choice.overridden && (
-                <button type="button" className="link" onClick={() => onPick(choice, null)}>
+                <button
+                  type="button"
+                  className="link"
+                  onClick={(e) => {
+                    // This button disappears with the reset: keep keyboard focus in the card.
+                    const card = e.currentTarget.closest('li')
+                    onPick(choice, null)
+                    card
+                      ?.querySelector<HTMLButtonElement>('.diagram-nav button:last-of-type')
+                      ?.focus()
+                  }}
+                >
                   {t('diagrams.reset')}
                 </button>
               )}

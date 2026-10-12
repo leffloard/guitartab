@@ -23,6 +23,7 @@
     "empty": "Henüz akor bulunamadı.",
     "found_one": "{{count}} akor bulundu",
     "found_other": "{{count}} akor bulundu",
+    "sourceCapo": "kapo {{capo}} için yazılmış",
     "format": {
       "chords-over-lyrics": "sözlerin üstünde akorlar",
       "chordpro": "ChordPro"
@@ -60,7 +61,10 @@
     "label": "Kapo pozisyonu",
     "none": "Kapo yok",
     "value": "Kapo {{capo}}",
-    "summary": "{{barres}} barre · {{shapes}} şekil",
+    "barres_one": "{{count}} barre",
+    "barres_other": "{{count}} barre",
+    "shapes_one": "{{count}} şekil",
+    "shapes_other": "{{count}} şekil",
     "noCapo": "Kapo istemiyorum",
     "infeasible": "Bu modda hiçbir kapo pozisyonu bütün akorları çalamıyor."
   },
@@ -82,11 +86,12 @@
     "title": "Akorlar",
     "label": "Akor metni",
     "capoNote": "Kapoyu {{capo}}. perdeye tak. Akor adları çalacağın şekillerdir.",
+    "capoNoteSounding": "Kapoyu {{capo}}. perdeye tak. Akor adları duyduğun seslerdir; çalacağın şekiller diyagramlarda.",
     "noCapoNote": "Kapo gerekmiyor."
   },
   "diagrams": {
     "title": "Şekiller",
-    "label": "{{chord}} akor diyagramı",
+    "label": "{{chord}} akor diyagramı: {{frets}} (kalın Mi telinden ince Mi teline)",
     "for": "{{chord}} için",
     "previous": "Önceki şekil",
     "next": "Sonraki şekil",
@@ -97,6 +102,9 @@
     "copyText": "Metni kopyala",
     "copyChordPro": "ChordPro kopyala",
     "copied": "Kopyalandı"
+  },
+  "export": {
+    "capoHeader": "Kapo: {{capo}}"
   },
   "pwa": {
     "offlineReady": "BarreFree artık çevrimdışı da çalışıyor.",

@@ -69,6 +69,16 @@ export function estimateKeySignature(
 }
 
 /**
+ * The key signature a semitone shift away, e.g. the key of the shapes under a capo. The
+ * enharmonic choice follows the signature table (F# rather than Gb, Db rather than C#).
+ */
+export function transposeKey(key: KeySignature, semitones: number): KeySignature {
+  if (mod12(semitones) === 0) return key
+  const tonic = mod12(key.tonic + semitones)
+  return { tonic, accidentals: SIGNATURE[tonic] ?? 0 }
+}
+
+/**
  * Spelling for a key signature: keys with sharps spell black keys with sharps (D# in E major),
  * keys with flats with flats (Db in F major), and C major / A minor uses the neutral chart
  * spelling (Bb, Eb, Ab, F#, C#). `diatonic` lets formatters treat chromatic chords specially

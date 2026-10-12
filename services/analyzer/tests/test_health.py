@@ -27,6 +27,11 @@ def test_serves_spa_with_client_side_route_fallback(tmp_path: Path) -> None:
     assert client.get("/api/does-not-exist").status_code == 404
     assert client.get("/api").status_code == 404
     assert client.get("/api/").status_code == 404
+    # The API docs live under /api/ too, so the web app (and its service worker) own the rest.
+    assert client.get("/api/openapi.json").json()["info"]["title"] == "BarreFree analyzer"
+    assert client.get("/api/docs").status_code == 200
+    assert client.get("/docs").text == "<html>spa</html>"
+    assert client.get("/openapi.json").text == "<html>spa</html>"
 
 
 def test_no_spa_when_dist_missing(tmp_path: Path) -> None:

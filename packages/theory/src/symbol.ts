@@ -332,7 +332,8 @@ const SOLFEGE: Readonly<Record<string, string>> = {
   B: 'Si',
 }
 
-function toSolfege(name: string): string {
+/** A note or chord name in solfège: "F#m" → "Fa#m". */
+export function toSolfege(name: string): string {
   return (SOLFEGE[name[0] ?? ''] ?? name[0] ?? '') + name.slice(1)
 }
 

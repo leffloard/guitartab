@@ -13,39 +13,42 @@ export function SettingsPanel({ settings, onChange }: Props) {
   return (
     <details className="settings">
       <summary>{t('settings.title')}</summary>
-      <label>
-        {t('language.label')}
-        <select
-          value={i18n.resolvedLanguage}
-          onChange={(e) => {
-            if (isSupportedLanguage(e.target.value)) void setLanguage(e.target.value)
-          }}
-        >
-          {SUPPORTED_LANGUAGES.map((lng) => (
-            <option key={lng} value={lng}>
-              {t(`language.${lng}`)}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        {t('settings.noteNames')}
-        <select
-          value={settings.noteNames}
-          onChange={(e) => onChange({ noteNames: e.target.value as NoteNames })}
-        >
-          <option value="letter">{t('settings.letters')}</option>
-          <option value="solfege">{t('settings.solfege')}</option>
-        </select>
-      </label>
-      <label className="check">
-        <input
-          type="checkbox"
-          checked={settings.keepScreenOn}
-          onChange={(e) => onChange({ keepScreenOn: e.target.checked })}
-        />
-        {t('settings.keepScreenOn')}
-      </label>
+      {/* A popover under the summary, so the open panel never widens the header. */}
+      <div className="settings-body">
+        <label>
+          {t('language.label')}
+          <select
+            value={i18n.resolvedLanguage}
+            onChange={(e) => {
+              if (isSupportedLanguage(e.target.value)) void setLanguage(e.target.value)
+            }}
+          >
+            {SUPPORTED_LANGUAGES.map((lng) => (
+              <option key={lng} value={lng}>
+                {t(`language.${lng}`)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          {t('settings.noteNames')}
+          <select
+            value={settings.noteNames}
+            onChange={(e) => onChange({ noteNames: e.target.value as NoteNames })}
+          >
+            <option value="letter">{t('settings.letters')}</option>
+            <option value="solfege">{t('settings.solfege')}</option>
+          </select>
+        </label>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={settings.keepScreenOn}
+            onChange={(e) => onChange({ keepScreenOn: e.target.checked })}
+          />
+          {t('settings.keepScreenOn')}
+        </label>
+      </div>
     </details>
   )
 }

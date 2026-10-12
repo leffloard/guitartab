@@ -6,7 +6,8 @@ interface Props {
   lines: RenderedLine[]
   /** For each chord token index: the arrangement's symbol key (null for no-chord / invalid). */
   symbolOfToken: (index: number) => string | null
-  substitutedSymbols: ReadonlySet<string>
+  /** Whether the chord shown for a token differs from the chord written there. */
+  isChanged: (index: number) => boolean
   /** Symbol key of the selected chord. */
   selected: string | null
   onSelect: (symbolKey: string) => void
@@ -16,15 +17,16 @@ interface Props {
  * The chord sheet in a monospace block. Chord names are buttons placed exactly where the
  * renderer put them, so the columns over the lyrics are preserved.
  */
-export function SheetView({ lines, symbolOfToken, substitutedSymbols, selected, onSelect }: Props) {
+export function SheetView({ lines, symbolOfToken, isChanged, selected, onSelect }: Props) {
   const { t } = useTranslation()
   return (
-    <pre className="sheet" aria-label={t('sheet.label')}>
+    // A <pre> has no role of its own, so it cannot carry a name without one.
+    <pre className="sheet" role="group" aria-label={t('sheet.label')}>
       {lines.map((line, i) => (
         <span key={i} className={`line line-${line.kind}`}>
           {line.chords.length === 0
             ? line.text
-            : renderChords(line, symbolOfToken, substitutedSymbols, selected, onSelect)}
+            : renderChords(line, symbolOfToken, isChanged, selected, onSelect)}
           {'\n'}
         </span>
       ))}
@@ -35,7 +37,7 @@ export function SheetView({ lines, symbolOfToken, substitutedSymbols, selected, 
 function renderChords(
   line: RenderedLine,
   symbolOfToken: Props['symbolOfToken'],
-  substituted: ReadonlySet<string>,
+  isChanged: Props['isChanged'],
   selected: string | null,
   onSelect: Props['onSelect'],
 ) {
@@ -52,7 +54,7 @@ function renderChords(
         <button
           key={c.start}
           type="button"
-          className={`chord${substituted.has(symbol) ? ' is-substituted' : ''}${
+          className={`chord${isChanged(c.token.index) ? ' is-substituted' : ''}${
             selected === symbol ? ' is-selected' : ''
           }`}
           aria-pressed={selected === symbol}
