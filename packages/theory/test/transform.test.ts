@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 import { chordEquals, transpose } from '../src/chord.ts'
 import { buildLibrary } from '../src/library.ts'
-import { realizes } from '../src/score.ts'
+import { DEFAULT_DIFFICULTY, realizes } from '../src/score.ts'
 import { formatChordSymbol, tryParseChordSymbol } from '../src/symbol.ts'
 import {
   candidatesFor,
@@ -16,11 +16,13 @@ import {
   type Mode,
   type TransformResult,
 } from '../src/transform.ts'
+import { spellPitchClass } from '../src/pitch.ts'
 import { EB_STANDARD } from '../src/tuning.ts'
 import { playedNotes } from '../src/voicing.ts'
 import { commonSymbol, simpleSymbol } from './arbitraries.ts'
 
 const MODES: Mode[] = ['original', 'capo', 'easy', 'beginner']
+const makeChordStub = () => ({ root: 0 as const, intervals: 1, bass: null })
 const labels = (...names: string[]) => names.map((label) => ({ label }))
 
 function summary(r: TransformResult) {
@@ -46,7 +48,7 @@ describe('acceptance: barre-free easy mode', () => {
       miniBarres: 0,
     })
     // Σ w·cost + μ·shapes, with the costs from the design document
-    expect(r.option?.total).toBeCloseTo((3.2428571 + 1.7 + 1.3 + 2.1) / 4 + 0.4, 5)
+    expect(r.option?.total).toBeCloseTo((3.2428571 + 1.7 + 1.3 + 2.1) / 4 + 4 * (0.1 / 4), 5)
     expect(r.alternatives.map((a) => a.capo)).toEqual([0, 5, 3])
     expect(r.alternatives[1]?.fullBarres).toBe(0)
   })
@@ -66,6 +68,88 @@ describe('acceptance: barre-free easy mode', () => {
     const r = transform(labels('E', 'B'), { mode: 'easy', capoRange: [0, 0] })
     expect(r.option?.symbols[1]?.played).toEqual(tryParseChordSymbol('B7'))
     expect(r.option?.symbols[1]?.substituted).toBe(true)
+  })
+})
+
+describe('acceptance: standard shapes are found', () => {
+  const ids = (prog: string, mode: Mode) =>
+    transform(labels(...prog.split(' ')), { mode }).option?.symbols.map((s) => s.voicing.id)
+
+  it('plays D/F# with the open 2x0232 family, not a stretch', () => {
+    expect(ids('G D/F# Em C', 'easy')?.[1]).toBe('2-0-0-2-3-2')
+    expect(ids('G D/F# Em C', 'original')?.[1]).toBe('2-0-0-2-3-2')
+  })
+
+  it('offers shapes stored under another name (open C#m7 is "E/C#" in chords-db)', () => {
+    expect(ids('C#m7', 'original')).toEqual(['x-4-2-1-0-0'])
+  })
+
+  it('keeps the standard C7 rather than an inversion', () => {
+    expect(ids('G Em C7 D7', 'easy')).toEqual([
+      '3-2-0-0-0-3',
+      '0-2-2-0-0-0',
+      'x-3-2-3-1-0',
+      'x-x-0-2-1-2',
+    ])
+  })
+
+  it('plays open power chords', () => {
+    expect(ids('E5 A5 D5', 'original')).toEqual(['0-2-2-x-x-x', 'x-0-2-2-x-x', 'x-x-0-2-3-x'])
+  })
+
+  it('falls back to generated shapes for chords the library lacks', () => {
+    const r = transform(labels('Dm7', 'Am7b9', 'G7', 'Cmaj7'), { mode: 'original' })
+    expect(r.option?.symbols[1]?.voicing).toMatchObject({ source: 'generated', id: 'x-0-2-3-1-3' })
+    const capo = transform(labels('C7#9#5'), { mode: 'capo' }).option
+    expect(capo?.capo).toBe(1)
+    expect(capo?.symbols[0]?.voicing).toMatchObject({ source: 'generated', id: '7-6-0-0-0-5' })
+  })
+
+  it('names an exact voicing after the chord, a substitute after its notes', () => {
+    const o = transform(labels('C13#11b9'), { mode: 'original' }).option
+    expect(o?.symbols[0]?.substituted).toBe(false)
+    expect(formatChordSymbol(o?.symbols[0]?.played ?? makeChordStub())).toBe('C13b9#11')
+  })
+})
+
+/**
+ * Pins the mode presets: each case was found by mutating one preset value and checking that
+ * this output changes (fidelity floors, minimum strings, μ).
+ */
+describe('mode preset golden cases', () => {
+  const play = (prog: string, mode: Mode, lambda: number) => {
+    const o = transform(labels(...prog.split(' ')), { mode, lambda }).option
+    return (
+      o && {
+        capo: o.capo,
+        shapes: o.symbols.map((s) => `${formatChordSymbol(s.played)} ${s.voicing.id}`),
+      }
+    )
+  }
+
+  it.each([
+    ['Cm', 'easy', 2, 3, ['Am7 x-0-2-0-1-0']], // easy floor not lower than 0.75
+    ['C', 'easy', 2, 0, ['Cmaj9 x-3-0-0-0-0']], // easy floor not higher than 0.75
+    ['A5', 'easy', 40, 2, ['G5 3-x-0-0-3-3']], // easy needs 4 strings
+    [
+      'C C7 F G',
+      'easy',
+      10,
+      0,
+      ['C x-3-2-0-1-0', 'C7 x-3-2-3-1-0', 'Fmaj7 x-x-3-2-1-0', 'G 3-2-0-0-0-3'],
+    ], // easy μ is small: no chord is merged into another's shape
+    ['B7', 'beginner', 2, 2, ['A7add11 x-0-0-0-2-0']], // beginner floor not lower than 0.7
+    ['Cm', 'beginner', 2, 3, ['Am7add11 x-0-0-0-1-0']], // beginner floor not higher than 0.7
+    [
+      'C C7 F G',
+      'beginner',
+      10,
+      3,
+      ['A7 x-0-2-0-2-0', 'A7 x-0-2-0-2-0', 'D x-x-0-2-3-2', 'E 0-2-2-1-0-0'],
+    ], // beginner μ merges C and C7 into one shape
+    ['A5', 'beginner', 20, 0, ['A5 x-0-2-2-x-x']], // beginner allows 3 strings
+  ] as const)('%s (%s, λ=%d) → capo %d %j', (prog, mode, lambda, capo, shapes) => {
+    expect(play(prog, mode, lambda)).toEqual({ capo, shapes: [...shapes] })
   })
 })
 
@@ -152,14 +236,20 @@ describe('items, no-chord segments and errors', () => {
   })
 
   it('reports capos where some chord cannot be played', () => {
+    const r = transform(labels('C7b9#9#11b13'), { mode: 'original' })
+    expect(r.option).toBeNull()
+    expect(r.alternatives).toEqual([])
+    expect(r.infeasibleCapos).toEqual([0])
+    expect(r.items[0]?.choice).toBeNull()
+  })
+
+  it('works with a custom library', () => {
     const tiny = buildLibrary([
       { tuning: 'standard', voicings: [{ chord: 'C', frets: [null, 3, 2, 0, 1, 0] }] },
     ])
-    // Only a C shape exists, so only the capo that turns D into a C shape (2) works without the
-    // generator, and the generator is restricted by the physical fret limit at high capos.
     const r = transform(labels('D'), { mode: 'capo', library: tiny })
-    expect(r.option).not.toBeNull()
     expect(r.option?.capo).toBe(2)
+    expect(r.option?.symbols[0]?.voicing.id).toBe('x-3-2-0-1-0')
   })
 
   it('returns no option when the progression has no chords', () => {
@@ -167,9 +257,23 @@ describe('items, no-chord segments and errors', () => {
     expect(r.option?.symbols).toEqual([])
   })
 
-  it('spells shape names in the key of the shapes', () => {
+  it('spells input and shape names by key', () => {
     const r = transform(labels('Bb', 'Eb', 'F'), { mode: 'capo', capoRange: [1, 1] })
-    expect(typeof r.spelling.shape).toBe('object')
+    expect(r.option?.capo).toBe(1)
+    // Shapes A–D–E are in A major: G#, not Ab. Inputs are in Bb major: Ab, not G#.
+    expect(spellPitchClass(8, r.spelling.shape)).toBe('G#')
+    expect(spellPitchClass(8, r.spelling.input)).toBe('Ab')
+    const spell = (prog: string) => {
+      const t = transform(labels(...prog.split(' ')), { mode: 'original' })
+      return t.items.map((i) =>
+        i.input ? formatChordSymbol(i.input, { spelling: t.spelling.input }) : '-',
+      )
+    }
+    expect(spell('C E/G# Am')).toEqual(['C', 'E/G#', 'Am'])
+    expect(spell('Am Dm G#dim Am')).toEqual(['Am', 'Dm', 'G#dim', 'Am'])
+    expect(spell('F Bb C Db F')).toEqual(['F', 'Bb', 'C', 'Db', 'F'])
+    expect(spell('Gb Db Ebm')).toEqual(['Gb', 'Db', 'Ebm'])
+    expect(spell('F# C# D#m')).toEqual(['F#', 'C#', 'D#m'])
   })
 })
 
@@ -189,25 +293,28 @@ describe('properties', () => {
     },
   )
 
-  test.prop([fc.array(simpleSymbol, { minLength: 1, maxLength: 4 })], { numRuns: 40 })(
-    'easy mode uses no full barre wherever the library offers an alternative',
-    (names) => {
-      const r = transform(labels(...names), { mode: 'easy' })
-      const o = r.option
-      if (!o) return
-      for (const s of o.symbols) {
-        const options = candidatesFor(
-          s.shape,
-          o.capo,
-          { ...MODE_PRESETS.easy, forbidFullBarre: false },
-          { mode: 'easy', lambda: DEFAULT_LAMBDA },
-        )
-        const hasAlternative = options.some((c) => !c.entry.info.barres.some((b) => b.full))
-        const chosen = options.find((c) => c.entry.voicing.id === s.voicing.id)
-        if (hasAlternative) expect(chosen?.entry.info.barres.some((b) => b.full)).toBe(false)
-      }
-    },
-  )
+  // With full barres made free, only the forbidFullBarre rule keeps them out of easy mode.
+  const cheapBarre = { ...DEFAULT_DIFFICULTY, fullBarre: 0 }
+  test.prop(
+    [fc.array(simpleSymbol, { minLength: 1, maxLength: 4 }), fc.constantFrom(...LAMBDA_STOPS)],
+    { numRuns: 40 },
+  )('easy mode uses no full barre wherever the library offers an alternative', (names, lambda) => {
+    const opts = { mode: 'easy', lambda, difficultyWeights: cheapBarre } as const
+    const o = transform(labels(...names), opts).option
+    if (!o) return
+    for (const s of o.symbols) {
+      const options = candidatesFor(
+        s.shape,
+        o.capo,
+        { ...MODE_PRESETS.easy, forbidFullBarre: false },
+        opts,
+      )
+      const hasAlternative = options.some((c) => !c.entry.info.barres.some((b) => b.full))
+      const chosen = options.find((c) => c.entry.voicing.id === s.voicing.id)
+      expect(chosen).toBeDefined()
+      if (hasAlternative) expect(chosen?.entry.info.barres.some((b) => b.full)).toBe(false)
+    }
+  })
 
   test.prop([progression, fc.constantFrom(...MODES)], { numRuns: 30 })(
     'never throws for parsable chords, and is deterministic',

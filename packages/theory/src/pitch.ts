@@ -13,9 +13,14 @@ export function mod12(n: number): PitchClass {
  * How to spell black-key pitch classes.
  * - `sharp` / `flat`: always use that accidental.
  * - `neutral`: the most common chart spelling (C# Eb F# Ab Bb), used when no key is known.
- * - `{ names }`: an explicit 12-entry table, e.g. built from a key signature (see key.ts).
+ * - `{ names, diatonic }`: an explicit 12-entry table built from a key signature (see key.ts),
+ *   with which pitch classes are diatonic to that key.
  */
-export type Spelling = 'sharp' | 'flat' | 'neutral' | { readonly names: readonly string[] }
+export type Spelling =
+  | 'sharp'
+  | 'flat'
+  | 'neutral'
+  | { readonly names: readonly string[]; readonly diatonic?: readonly boolean[] }
 
 const SHARP_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] as const
 const FLAT_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'] as const

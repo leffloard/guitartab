@@ -37,7 +37,11 @@ function triadQuality(chord: Chord): 'maj' | 'min' | 'dim' | null {
  * the scale, +1 more when its triad matches the diatonic triad on that degree (weighted).
  * Ties go to the signature with fewer accidentals, then to sharps.
  */
-export function estimateKeySignature(chords: readonly WeightedChord[]): KeySignature {
+export function estimateKeySignature(
+  chords: readonly WeightedChord[],
+  /** How the user spelled roots; decides between the enharmonic keys Gb/F# and Db/C#. */
+  hint: 'sharp' | 'flat' | null = null,
+): KeySignature {
   let best: KeySignature = { tonic: 0, accidentals: 0 }
   let bestScore = -1
   for (let tonic = 0; tonic < 12; tonic++) {
@@ -48,7 +52,9 @@ export function estimateKeySignature(chords: readonly WeightedChord[]): KeySigna
       score += weight
       if (triadQuality(chord) === DIATONIC_TRIADS[degree]) score += weight
     }
-    const accidentals = SIGNATURE[tonic] ?? 0
+    let accidentals: number = SIGNATURE[tonic] ?? 0
+    if (hint === 'flat' && accidentals === 6) accidentals = -6 // Gb rather than F#
+    if (hint === 'sharp' && accidentals === -5) accidentals = 7 // C# rather than Db
     const better =
       score > bestScore + 1e-9 ||
       (Math.abs(score - bestScore) <= 1e-9 &&
@@ -63,17 +69,23 @@ export function estimateKeySignature(chords: readonly WeightedChord[]): KeySigna
 }
 
 /**
- * Spelling for a key signature: diatonic notes use the signature's accidental (F# in D major,
- * Bb in F major), non-diatonic ones the neutral chart spelling.
+ * Spelling for a key signature: keys with sharps spell black keys with sharps (D# in E major),
+ * keys with flats with flats (Db in F major), and C major / A minor uses the neutral chart
+ * spelling (Bb, Eb, Ab, F#, C#). `diatonic` lets formatters treat chromatic chords specially
+ * (a leading-tone G#dim in A minor).
  */
 export function spellingForKey(key: KeySignature): Spelling {
-  const diatonicTable = key.accidentals < 0 ? PITCH_NAMES.flat : PITCH_NAMES.sharp
+  const table =
+    key.accidentals > 0
+      ? PITCH_NAMES.sharp
+      : key.accidentals < 0
+        ? PITCH_NAMES.flat
+        : PITCH_NAMES.neutral
   const names: string[] = []
+  const diatonic: boolean[] = []
   for (let pc = 0; pc < 12; pc++) {
-    const diatonic = MAJOR_SCALE.includes(mod12(pc - key.tonic) as (typeof MAJOR_SCALE)[number])
-    names.push(
-      (diatonic && key.accidentals !== 0 ? diatonicTable[pc] : PITCH_NAMES.neutral[pc]) ?? '?',
-    )
+    names.push(table[pc] ?? '?')
+    diatonic.push(MAJOR_SCALE.includes(mod12(pc - key.tonic) as (typeof MAJOR_SCALE)[number]))
   }
-  return { names }
+  return { names, diatonic }
 }

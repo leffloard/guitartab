@@ -30,8 +30,13 @@ export interface LibraryEntry {
 }
 
 export interface VoicingLibrary {
-  /** Entries grouped by the root of their chord name. */
-  byRoot: readonly (readonly LibraryEntry[])[]
+  /**
+   * Entries grouped by every pitch class they sound (shape space), so a shape stored under one
+   * name is also offered for the other chords it plays: the open C#m7 `x42100` is stored by
+   * chords-db as "E/C#".
+   */
+  byPitchClass: readonly (readonly LibraryEntry[])[]
+  /** Number of distinct shapes. */
   size: number
 }
 
@@ -46,7 +51,7 @@ export function makeEntry(voicing: Voicing, chord: Chord): LibraryEntry {
 
 /**
  * Builds a library from files in priority order. A shape (same frets) that appears twice keeps
- * the first file's name and fingering. Records whose chord name cannot be parsed, or that
+ * the first file's name and fingering, whatever the names. Records whose chord name cannot be parsed, or that
  * cannot be fingered, are skipped (the data tests make sure none are).
  */
 export function buildLibrary(files: readonly VoicingLibraryFile[]): VoicingLibrary {
@@ -61,14 +66,14 @@ export function buildLibrary(files: readonly VoicingLibraryFile[]): VoicingLibra
       const fingers = record.fingers ?? assignFingers(frets)
       if (!fingers) continue
       const voicing = makeVoicing(frets, fingers, file.source ? file.source.name : 'curated')
-      const key = `${chord.root}|${voicing.id}`
-      if (seen.has(key)) continue
-      seen.add(key)
-      buckets[chord.root]?.push(makeEntry(voicing, chord))
+      if (seen.has(voicing.id)) continue
+      seen.add(voicing.id)
+      const entry = makeEntry(voicing, chord)
+      for (const pc of new Set(entry.played.pcs)) buckets[pc]?.push(entry)
       size++
     }
   }
-  return { byRoot: buckets, size }
+  return { byPitchClass: buckets, size }
 }
 
 let defaultLibrary: VoicingLibrary | undefined

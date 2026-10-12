@@ -188,6 +188,55 @@
       "chord": "Bb/D",
       "frets": [null, null, 0, 3, 3, 1],
       "fingers": [null, null, null, 3, 4, 1]
+    },
+    {
+      "chord": "D/F#",
+      "frets": [2, 0, 0, 2, 3, 2]
+    },
+    {
+      "chord": "D/F#",
+      "frets": [2, null, 0, 2, 3, 2],
+      "note": "thumb over the neck for the F# bass, A string muted"
+    },
+    {
+      "chord": "A/C#",
+      "frets": [null, 4, 2, 2, 2, 0]
+    },
+    {
+      "chord": "C/G",
+      "frets": [3, 3, 2, 0, 1, 0]
+    },
+    {
+      "chord": "Am/G",
+      "frets": [3, 0, 2, 2, 1, 0]
+    },
+    {
+      "chord": "G/F#",
+      "frets": [2, null, 0, 0, 0, 3]
+    },
+    {
+      "chord": "Em/D",
+      "frets": [null, null, 0, 0, 0, 0]
+    },
+    {
+      "chord": "E5",
+      "frets": [0, 2, 2, null, null, null]
+    },
+    {
+      "chord": "A5",
+      "frets": [null, 0, 2, 2, null, null]
+    },
+    {
+      "chord": "D5",
+      "frets": [null, null, 0, 2, 3, null]
+    },
+    {
+      "chord": "G5",
+      "frets": [3, null, 0, 0, 3, 3]
+    },
+    {
+      "chord": "C5",
+      "frets": [null, 3, 5, 5, null, null]
     }
   ]
 }

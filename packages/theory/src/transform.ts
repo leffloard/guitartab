@@ -29,8 +29,10 @@ import {
   DEFAULT_DIFFICULTY,
   DEFAULT_FIDELITY,
   difficulty,
-  fidelity,
+  fidelityOf,
+  prepareTarget,
   realizes,
+  realizesPrepared,
   type DifficultyWeights,
   type FidelityWeights,
 } from './score.ts'
@@ -48,7 +50,10 @@ export interface ModeConfig {
   /** Drop full-barre shapes whenever any other shape is allowed. */
   forbidFullBarre: boolean
   simplify: SimplifyLevel
-  /** Cost of each distinct shape (encourages reusing shapes). */
+  /**
+   * Cost of each distinct shape, divided by the number of distinct chords (encourages reusing
+   * shapes): with equal weights, a chord accepts a substitute up to μ worse to share a shape.
+   */
   mu: number
 }
 
@@ -83,7 +88,7 @@ export const MODE_PRESETS: Readonly<Record<Mode, ModeConfig>> = {
   beginner: {
     capoRange: [0, 7],
     constraint: 'floor',
-    fidelityFloor: 0.6,
+    fidelityFloor: 0.7,
     minStrings: 3,
     forbidFullBarre: true,
     simplify: 'drop-tensions',
@@ -145,7 +150,7 @@ export interface SymbolChoice {
 
 export interface CapoOption {
   capo: number
-  /** Objective value: Σ weight·cost + μ·shapes + capo penalty (lower is better). */
+  /** Objective value: Σ weight·cost + (μ / chords)·shapes + capo penalty (lower is better). */
   total: number
   meanDifficulty: number
   meanFidelity: number
@@ -182,6 +187,85 @@ export interface TransformResult {
 
 type ResolvedOptions = TransformOptions & { lambda: number }
 
+interface Evaluated {
+  entry: LibraryEntry
+  difficulty: number
+  fidelity: number
+}
+
+/**
+ * λ-independent evaluations, memoized per library. Switching the λ slider or the mode then only
+ * re-sorts short lists instead of rescoring the whole library. The cache is invisible to callers
+ * (results depend only on the key) and is skipped for custom weights.
+ */
+const evaluationCache = new WeakMap<VoicingLibrary, Map<string, readonly Evaluated[]>>()
+const CACHE_LIMIT = 5000
+
+const THIRD_INTERVAL = { M3: 4, m3: 3, sus2: 2, sus4: 5 } as const
+
+function evaluateShapes(
+  target: Chord,
+  capo: number,
+  config: ModeConfig,
+  options: TransformOptions,
+  library: VoicingLibrary,
+): readonly Evaluated[] {
+  const dw = options.difficultyWeights ?? DEFAULT_DIFFICULTY
+  const fw = options.fidelityWeights ?? DEFAULT_FIDELITY
+  const cacheable = dw === DEFAULT_DIFFICULTY && fw === DEFAULT_FIDELITY
+  const key = `${chordKey(target)}|${capo}|${config.constraint}|${config.fidelityFloor}|${config.minStrings}|${config.forbidFullBarre}`
+  let cache = evaluationCache.get(library)
+  const hit = cacheable ? cache?.get(key) : undefined
+  if (hit) return hit
+
+  const prepared = prepareTarget(target, fw)
+  const { third } = describe(target)
+  // Floor for substitutes: the root sounds, and so does the third (or sus tone) if there is one.
+  const rootAndThird = 1 | (third === null ? 0 : 1 << THIRD_INTERVAL[third])
+  const evaluate = (entries: readonly LibraryEntry[]): Evaluated[] => {
+    const out: Evaluated[] = []
+    for (const entry of entries) {
+      if (capo + entry.info.maxFret > MAX_PHYSICAL_FRET) continue
+      if (entry.info.sounding < config.minStrings) continue
+      const fid = fidelityOf(prepared, entry.played)
+      if (config.constraint === 'realizes') {
+        if (!realizesPrepared(prepared, entry.played)) continue
+      } else {
+        if (fid.clash || fid.value < config.fidelityFloor - 1e-9) continue
+        let played = 0
+        for (const pc of entry.played.pcs) played |= 1 << mod12(pc - target.root)
+        if ((played & rootAndThird) !== rootAndThird) continue
+      }
+      out.push({ entry, difficulty: difficulty(entry.info, dw).total, fidelity: fid.value })
+    }
+    return out
+  }
+
+  let list = evaluate(library.byPitchClass[target.root] ?? [])
+  if (list.length === 0) {
+    // Filter the generator's full output: its easiest shapes may all fail the mode's test.
+    list = evaluate(
+      generateVoicings(target, {
+        minStrings: Math.max(config.minStrings, 3),
+        maxFret: MAX_PHYSICAL_FRET - capo,
+        limit: Number.POSITIVE_INFINITY,
+      }),
+    )
+  }
+  if (config.forbidFullBarre && list.some((c) => !c.entry.info.barres.some((b) => b.full))) {
+    list = list.filter((c) => !c.entry.info.barres.some((b) => b.full))
+  }
+  if (cacheable) {
+    if (!cache) {
+      cache = new Map()
+      evaluationCache.set(library, cache)
+    }
+    if (cache.size >= CACHE_LIMIT) cache.clear()
+    cache.set(key, list)
+  }
+  return list
+}
+
 /**
  * Allowed voicings for one chord at one capo position (target in shape space), cheapest first.
  * Falls back to the fretboard generator when the library has nothing allowed.
@@ -193,65 +277,18 @@ export function candidatesFor(
   options: ResolvedOptions,
   library: VoicingLibrary = getDefaultLibrary(),
 ): ScoredCandidate[] {
-  const dw = options.difficultyWeights ?? DEFAULT_DIFFICULTY
-  const fw = options.fidelityWeights ?? DEFAULT_FIDELITY
-  const score = (entries: readonly LibraryEntry[]): ScoredCandidate[] => {
-    const out: ScoredCandidate[] = []
-    for (const entry of entries) {
-      if (capo + entry.info.maxFret > MAX_PHYSICAL_FRET) continue
-      if (entry.info.sounding < config.minStrings) continue
-      const fid = fidelity(target, entry.played, fw)
-      if (config.constraint === 'realizes') {
-        if (!realizes(target, entry.played)) continue
-      } else if (
-        fid.clash ||
-        fid.value < config.fidelityFloor - 1e-9 ||
-        !rootAndThirdPlayed(target, entry)
-      ) {
-        continue
-      }
-      const d = difficulty(entry.info, dw).total
-      out.push({
-        entry,
-        difficulty: d,
-        fidelity: fid.value,
-        cost: d + options.lambda * (1 - fid.value),
-      })
-    }
-    return out
-  }
-  let candidates = score(library.byRoot[target.root] ?? [])
-  if (candidates.length === 0) {
-    candidates = score(
-      generateVoicings(target, {
-        minStrings: Math.max(config.minStrings, 3),
-        maxFret: MAX_PHYSICAL_FRET - capo,
-      }),
+  return evaluateShapes(target, capo, config, options, library)
+    .map((e) => ({ ...e, cost: e.difficulty + options.lambda * (1 - e.fidelity) }))
+    .sort(
+      (a, b) =>
+        a.cost - b.cost ||
+        a.difficulty - b.difficulty ||
+        (a.entry.voicing.id < b.entry.voicing.id
+          ? -1
+          : a.entry.voicing.id > b.entry.voicing.id
+            ? 1
+            : 0),
     )
-  }
-  if (config.forbidFullBarre && candidates.some((c) => !c.entry.info.barres.some((b) => b.full))) {
-    candidates = candidates.filter((c) => !c.entry.info.barres.some((b) => b.full))
-  }
-  return candidates.sort(
-    (a, b) =>
-      a.cost - b.cost ||
-      a.difficulty - b.difficulty ||
-      (a.entry.voicing.id < b.entry.voicing.id
-        ? -1
-        : a.entry.voicing.id > b.entry.voicing.id
-          ? 1
-          : 0),
-  )
-}
-
-const THIRD_INTERVAL = { M3: 4, m3: 3, sus2: 2, sus4: 5 } as const
-
-/** Floor for substitutes: the root is played, and so is the third (or sus tone) if the chord has one. */
-function rootAndThirdPlayed(target: Chord, entry: LibraryEntry): boolean {
-  const pcs = new Set<number>(entry.played.pcs)
-  if (!pcs.has(target.root)) return false
-  const { third } = describe(target)
-  return third === null || pcs.has(mod12(target.root + THIRD_INTERVAL[third]))
 }
 
 function solveCapo(
@@ -269,14 +306,21 @@ function solveCapo(
   const problem: AssignmentProblem = {
     weights: symbols.map((s) => s.weight),
     candidates: lists.map((l) => l.map((c) => ({ id: c.entry.voicing.id, cost: c.cost }))),
-    mu: config.mu,
+    // Per-shape cost normalized by the number of symbols: with equal weights a chord then accepts
+    // a substitute at most μ worse to reuse a shape, however long the song is.
+    mu: config.mu / Math.max(1, symbols.length),
   }
   const solution = solveAssignment(problem)
   const chosen: SymbolChoice[] = symbols.map((s, i) => {
     const cand = lists[i]?.[solution.choice[i] ?? 0]
     if (!cand) throw new Error('assignment returned an invalid candidate')
     const shape = transpose(s.chord, -(capo + shift))
-    const played = identifyChord(cand.entry.played.pcs, shape.root, cand.entry.played.lowest)
+    const exact = realizes(shape, cand.entry.played)
+    // An exact voicing is shown under the chord's own name (a C7 shape without its G is still
+    // "C7"); a substitute is named from the notes it plays.
+    const played = exact
+      ? shape
+      : identifyChord(cand.entry.played.pcs, shape.root, cand.entry.played.lowest)
     return {
       chord: s.chord,
       weight: s.weight,
@@ -286,7 +330,7 @@ function solveCapo(
       difficulty: cand.difficulty,
       fidelity: cand.fidelity,
       cost: cand.cost,
-      substituted: !realizes(shape, cand.entry.played),
+      substituted: !exact,
     }
   })
   let meanDifficulty = 0
@@ -376,7 +420,10 @@ export function transform(
     }
   })
 
-  const inputSpelling = spellingForKey(estimateKeySignature(symbols))
+  const sharps = progression.filter((p) => /^\s*[A-G][#♯]/.test(p.label)).length
+  const flats = progression.filter((p) => /^\s*[A-G][b♭]/.test(p.label)).length
+  const hint = flats > sharps ? 'flat' : sharps > flats ? 'sharp' : null
+  const inputSpelling = spellingForKey(estimateKeySignature(symbols, hint))
   const shapeSpelling = spellingForKey(
     estimateKeySignature(
       (chosen?.symbols ?? []).map((s) => ({ chord: s.shape, weight: s.weight })),

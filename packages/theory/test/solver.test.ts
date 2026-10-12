@@ -73,19 +73,31 @@ describe('voicing assignment (facility location)', () => {
     expect(() => evaluateAssignment({ weights: [1], candidates: [[]], mu: 1 }, [0])).toThrow()
   })
 
-  it('returns its best effort when the node limit is hit', () => {
-    const n = 8
+  it('returns its best effort when the node limit is hit, never a pruned candidate', () => {
+    // Symbol 2 is its own component; 'z' (cost 5) is pruned because 'y' costs 1.
     const p: AssignmentProblem = {
-      weights: new Array<number>(n).fill(1 / n),
-      candidates: Array.from({ length: n }, (_, i) =>
-        ['a', 'b', 'c', 'd'].map((id, k) => ({ id: `${id}${(i + k) % 3}`, cost: 1 + k * 0.01 })),
-      ),
-      mu: 1,
+      weights: [1, 1, 1],
+      candidates: [
+        [
+          { id: 'a', cost: 1 },
+          { id: 'b', cost: 1.05 },
+        ],
+        [
+          { id: 'c', cost: 1 },
+          { id: 'a', cost: 1.05 },
+        ],
+        [
+          { id: 'z', cost: 5 },
+          { id: 'y', cost: 1 },
+        ],
+      ],
+      mu: 0.1,
     }
-    const limited = solveAssignment(p, 3)
+    const limited = solveAssignment(p, 0)
     expect(limited.exact).toBe(false)
-    expect(Number.isFinite(limited.total)).toBe(true)
-    expect(solveAssignment(p).total).toBeLessThanOrEqual(limited.total)
+    expect(limited.choice[2]).toBe(1)
+    expect(limited.total).toBeGreaterThanOrEqual(bruteForceAssignment(p).total - 1e-12)
+    expect(solveAssignment(p).total).toBeCloseTo(bruteForceAssignment(p).total, 12)
   })
 })
 
@@ -137,6 +149,15 @@ describe('progressions', () => {
 })
 
 describe('key signature and spelling', () => {
+  it("uses the user's accidentals for the enharmonic keys Gb/F# and Db/C#", () => {
+    const gb = chords(['Gb', 'Cb', 'Db', 'Ebm'])
+    expect(estimateKeySignature(gb, 'flat').accidentals).toBe(-6)
+    expect(estimateKeySignature(gb, 'sharp').accidentals).toBe(6)
+    const db = chords(['Db', 'Gb', 'Ab'])
+    expect(estimateKeySignature(db).accidentals).toBe(-5)
+    expect(estimateKeySignature(db, 'sharp').accidentals).toBe(7)
+  })
+
   const chords = (names: string[]) =>
     names.map((n) => ({ chord: tryParseChordSymbol(n) ?? makeChord(0, 1), weight: 1 }))
 
@@ -159,11 +180,27 @@ describe('key signature and spelling', () => {
   it('spells diatonic notes by the signature and others neutrally', () => {
     const eMajor = spellingForKey({ tonic: 4, accidentals: 4 })
     expect(spellPitchClass(3, eMajor)).toBe('D#')
-    expect(spellPitchClass(10, eMajor)).toBe('Bb')
+    expect(spellPitchClass(10, eMajor)).toBe('A#')
     const abMajor = spellingForKey({ tonic: 8, accidentals: -4 })
     expect(spellPitchClass(1, abMajor)).toBe('Db')
-    expect(spellPitchClass(6, abMajor)).toBe('F#')
-    expect(spellPitchClass(1, spellingForKey({ tonic: 0, accidentals: 0 }))).toBe('C#')
+    expect(spellPitchClass(6, abMajor)).toBe('Gb')
+    const cMajor = spellingForKey({ tonic: 0, accidentals: 0 })
+    expect(spellPitchClass(1, cMajor)).toBe('C#')
+    expect(spellPitchClass(10, cMajor)).toBe('Bb')
+    expect(typeof cMajor === 'object' && cMajor.diatonic).toEqual([
+      true,
+      false,
+      true,
+      false,
+      true,
+      true,
+      false,
+      true,
+      false,
+      true,
+      false,
+      true,
+    ])
   })
 
   test.prop([fc.integer({ min: 0, max: 11 })])('a transposed I–V–vi–IV keeps its tonic', (n) => {

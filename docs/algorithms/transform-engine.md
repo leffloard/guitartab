@@ -44,7 +44,10 @@ The named structure (third, fifth, seventh, sixth, tensions) is derived on deman
 
 **Chord symbols** (`parseChordSymbol` / `formatChordSymbol`) cover what chord sheets use:
 `F#m7b5`, `Bb/D`, `Gsus4`, `C6/9`, `Am(maj7)`, `C°7`, `Cø`, `C+`, `D2`, `Cadd9`, `C7(b9,#9)`,
-`C(no3)`, and `♯`/`♭` accidentals.
+`C(no3)`, and `♯`/`♭` accidentals. It also reads Brazilian/European chord-book notation:
+`C7M`, `Am(7M)`, `Bm7(5-)`, `E7(9-)`, `G5+`, `C6(9)`, `CMA7`, `CMI7`, `G7°`, `C7/9`.
+Ambiguous input such as `A7+` (augmented in some books, major seventh in others) is rejected
+rather than guessed.
 
 - In pop usage, **`C13` = 7 + 9 + 13**: the 11 is omitted because it clashes with the third.
 - The formatter is **total**: every interval set and bass formats to a symbol that parses back
@@ -62,9 +65,15 @@ The named structure (third, fifth, seventh, sixth, tensions) is derived on deman
 
 - +1 per chord whose root is diatonic, +1 more if its triad also matches the scale.
 - Ties go to fewer accidentals.
+- How the user spelled roots decides between the enharmonic keys Gb/F# and Db/C#.
 
-Diatonic notes take the signature's accidental (D# in E major); others use the common chart
-spelling (Bb, Eb, F#, C#, Ab).
+Spelling rules:
+
+- Keys with sharps spell black keys with sharps, keys with flats with flats, and C major uses
+  the common chart spelling (Bb, Eb, Ab, F#, C#).
+- A slash bass is spelled from the root's letter (E/G#, B/D#, Am/G#), unless that would need
+  a double accidental.
+- Chromatic diminished chords are spelled with sharps (G#dim, D#dim7).
 
 ## 2. Voicing library (`data/voicings`)
 
@@ -75,9 +84,16 @@ spelling (Bb, Eb, F#, C#, Ab).
 - It keeps 3083 of 3283 positions. Positions are dropped when their notes contradict their name
   (rootless, third-less, data errors, 13ths that include the 11, two-string power chords).
 
-**Curated set:** `standard/curated.json` holds 36 hand-checked shapes, with the classic
-barre-free substitutes (Fmaj7 `xx3210`, Bm7 `x20202`, B7 `x21202`) and slash chords. Curated
-entries win over chords-db for identical frets.
+**Curated set:** `standard/curated.json` holds 48 hand-checked shapes, curated entries win over
+chords-db for identical frets. They include:
+
+- the classic barre-free substitutes: Fmaj7 `xx3210`, Bm7 `x20202`, B7 `x21202`;
+- open slash chords: D/F# `200232`, A/C#, C/G, Am/G;
+- open power chords.
+
+**Indexing:** shapes are indexed by every pitch class they sound, not only by the root of their
+stored name. A shape stored under one name is therefore offered for every chord it plays: the
+open C#m7 `x42100` is stored by chords-db as "E/C#".
 
 **Derived, never stored:** barres, finger count, span, muted and open strings
 (`analyzeShape`). A barre is one finger on two or more strings at the same fret:
@@ -148,7 +164,12 @@ fidelity = max(0, 1 − (missing + added + bass) / Σ weights of the target's to
 A clash is the other third (major ↔ minor, or a third on a sus chord), the other seventh, or
 a perfect fifth against an altered one.
 
-**Bass mismatch:** 1.5 if the written slash bass is missing from the bottom, 1.0 if the root is.
+**Bass mismatch:** 1.5, whether the written slash bass or the root is missing from the bottom.
+On a guitar the lowest string defines the inversion.
+
+**Optional tones:** a perfect fifth and the natural 9 / 11 below the top tension may be left out
+at no cost (C7 `x32310` has no G). They still count in the denominator. Altered tensions (b9,
+#9, #11, b13) are never optional.
 
 **Why a seventh is the cheapest colour.** The textbook substitutes all add a seventh
 (F → Fmaj7, Bm → Bm7, B → B7). A shape that adds two colours, such as F6/9 for F, falls below
@@ -157,19 +178,18 @@ easy mode then recoloured chords that needed no help (G → G6/9, C → Cadd9).
 
 **`realizes(target, played)`** is the strict test used by the `original` and `capo` modes.
 
-- Every chord tone must sound, except a perfect fifth and non-highest tensions (C7 `x32310` has
-  no G).
+- Every chord tone must sound, except the optional tones above.
 - Nothing may be added.
 - The lowest note must be the written bass.
 
 ### Worked example: four ways to play F (tested in `test/voicings.test.ts`)
 
-| Shape               | Plays       | D(v) | Fidelity            | λ=5      | λ=10 (default) | λ=20     | λ=40     |
-| ------------------- | ----------- | ---- | ------------------- | -------- | -------------- | -------- | -------- |
-| F barre `133211`    | F C F A C F | 9.00 | 1                   | 9.00     | 9.00           | 9.00     | 9.00     |
-| small F `xx3211`    | F A C F     | 4.50 | 1                   | 4.50     | 4.50           | 4.50     | **4.50** |
-| Fmaj7 `xx3210`      | F A C E     | 2.10 | 0.886 (+E: 0.8/7)   | **2.67** | **3.24**       | **4.38** | 6.66     |
-| 3-string F `xxx211` | A C F       | 4.00 | 0.857 (A bass: 1/7) | 4.71     | 5.43           | 6.86     | 9.72     |
+| Shape               | Plays       | D(v) | Fidelity              | λ=5      | λ=10 (default) | λ=20     | λ=40     |
+| ------------------- | ----------- | ---- | --------------------- | -------- | -------------- | -------- | -------- |
+| F barre `133211`    | F C F A C F | 9.00 | 1                     | 9.00     | 9.00           | 9.00     | 9.00     |
+| small F `xx3211`    | F A C F     | 4.50 | 1                     | 4.50     | 4.50           | 4.50     | **4.50** |
+| Fmaj7 `xx3210`      | F A C E     | 2.10 | 0.886 (+E: 0.8/7)     | **2.67** | **3.24**       | **4.38** | 6.66     |
+| 3-string F `xxx211` | A C F       | 4.00 | 0.786 (A bass: 1.5/7) | 5.07     | 6.14           | 8.29     | 12.57    |
 
 The choice flips from Fmaj7 to the small F at λ ≈ 21.
 
@@ -193,15 +213,24 @@ The choice flips from Fmaj7 to the small F at λ ≈ 21.
 **Assignment.** Every symbol gets one shape:
 
 ```
-min Σ_s w_s · cost(s, v_s) + μ · |distinct shapes|      (src/assign.ts)
+min Σ_s w_s · cost(s, v_s) + (μ / n) · |distinct shapes|      (src/assign.ts)
 ```
+
+where `n` is the number of distinct chords. With the normalization, the rule means the same
+thing for any song length: with equal weights, a chord accepts a substitute up to μ more
+expensive in order to reuse a shape that is already in use. Without it, long songs (small
+weights) let the shape term dominate, and the search blew up.
 
 This is uncapacitated facility location (Cornuéjols, Nemhauser & Wolsey 1990). The solver:
 
 1. **Prunes** candidates costing more than `μ / w` above their symbol's best. Such a candidate
    can never be optimal, because switching saves at most one shape.
 2. **Splits** the problem into components of symbols that share candidates.
-3. **Solves** each component with branch and bound, with a node limit.
+3. **Solves** each component with branch and bound. The search starts from the greedy solution
+   and has a node budget per component.
+
+For speed, at most 10 candidates per chord are kept after the exact pruning. When this cap
+removes candidates, the result is flagged `exact: false`.
 
 Property tests check it against brute force.
 
@@ -214,7 +243,7 @@ best three are returned, and the UI can request any feasible capo explicitly.
 | `original` | 0     | `realizes`                    | –              | 3           | allowed                    | –            | 0   |
 | `capo`     | 0–7   | `realizes`                    | –              | 3           | allowed                    | –            | 0.1 |
 | `easy`     | 0–7   | root + third, no clash, floor | 0.75           | 4           | dropped if any alternative | –            | 0.1 |
-| `beginner` | 0–7   | root + third, no clash, floor | 0.6            | 3           | dropped if any alternative | drop 9/11/13 | 0.5 |
+| `beginner` | 0–7   | root + third, no clash, floor | 0.7            | 3           | dropped if any alternative | drop 9/11/13 | 0.5 |
 
 **The λ slider** has five stops: 2, 5, 10 (default), 20, 40. Choices only change at
 breakpoints, so fixed stops keep results and tests stable. At a fixed capo, a higher λ never
@@ -222,13 +251,32 @@ lowers the weighted fidelity. This holds for any exact optimizer and is property
 
 ### Acceptance (M1), at λ = 10 in easy mode
 
-| Progression | Chosen                      | Total                   | Runner-up     |
-| ----------- | --------------------------- | ----------------------- | ------------- |
-| F–C–G–Am    | capo 0: **Fmaj7**, C, G, Am | 2.486 (2.086 + 4 × 0.1) | capo 5: 2.675 |
-| Bm–G–D–A    | capo 0: **Bm7**, G, D, A    | 2.586                   | capo 2: 2.686 |
+| Progression | Chosen                      | Total                     | Runner-up     |
+| ----------- | --------------------------- | ------------------------- | ------------- |
+| F–C–G–Am    | capo 0: **Fmaj7**, C, G, Am | 2.186 (2.086 + 4 × 0.1/4) | capo 5: 2.375 |
+| Bm–G–D–A    | capo 0: **Bm7**, G, D, A    | 2.286                     | capo 2: 2.386 |
 
 Neither has a full or mini barre. In `capo` mode, F–C–G–Am moves to capo 5 (C–G–D–Em shapes),
 where every chord is exact.
+
+## Performance
+
+Ranking a 40-segment song with 12 distinct chords, measured with Node 22 on the dev container:
+
+| Step                           | Time        |
+| ------------------------------ | ----------- |
+| Library build (once)           | about 40 ms |
+| First `transform()` per mode   | about 40 ms |
+| Later calls (λ or mode change) | 1.5–5 ms    |
+
+Two things make the later calls fast:
+
+- Evaluations that do not depend on λ (difficulty, fidelity, filters) are memoized per library.
+- Each target chord is prepared once (tone weights, masks, clash set) and reused for every
+  candidate shape.
+
+The cache is invisible to callers, because results depend only on the cache key. It is
+skipped when custom weights are passed.
 
 ## References
 

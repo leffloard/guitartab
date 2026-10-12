@@ -4,7 +4,14 @@
  */
 import { describe, makeChord, type Chord, type IntervalMask, type Tension } from './chord.ts'
 import { degreeToSemitones, intervalName } from './intervals.ts'
-import { mod12, parseNote, parseNoteAt, spellPitchClass, type Spelling } from './pitch.ts'
+import {
+  mod12,
+  parseNote,
+  parseNoteAt,
+  spellPitchClass,
+  type PitchClass,
+  type Spelling,
+} from './pitch.ts'
 
 export interface SymbolParseError {
   message: string
@@ -35,7 +42,25 @@ interface Tokens {
 
 type TokenRule = (rest: string, t: Tokens) => number
 
-/** Each rule returns how many characters it consumed (0 = no match). */
+/** True once anything after the root has fixed the chord's family or quality. */
+function hasQualifier(t: Tokens): boolean {
+  return (
+    t.minor ||
+    t.dim ||
+    t.halfDim ||
+    t.aug ||
+    t.power ||
+    t.sixth ||
+    t.family !== null ||
+    t.sus.size > 0
+  )
+}
+
+function addDegree(t: Tokens, num: number, sign: number): void {
+  t.added.add(mod12((degreeToSemitones(String(num)) ?? 0) + sign))
+}
+
+/** Each rule returns how many characters it consumed (0 = no match). Order matters. */
 const RULES: readonly TokenRule[] = [
   // separators
   (rest) => (/^[\s(),]/.test(rest) ? 1 : 0),
@@ -45,6 +70,16 @@ const RULES: readonly TokenRule[] = [
     if (!m) return 0
     t.sixth = true
     t.added.add(2)
+    return m[0].length
+  },
+  // a slash followed by a tension adds it: C7/9 (= C9 in some chord books). Other numbers
+  // after a slash are Harte bass degrees (C/3), handled by the Harte parser.
+  (rest, t) => {
+    const m = /^\/([b#♭♯]?(?:9|11|13))(?!\d)/.exec(rest)
+    if (!m) return 0
+    const semis = degreeToSemitones(m[1] ?? '')
+    if (semis === null) return 0
+    t.added.add(mod12(semis))
     return m[0].length
   },
   // no3 / omit5
@@ -64,23 +99,49 @@ const RULES: readonly TokenRule[] = [
     t.added.add(mod12(semis))
     return m[0].length
   },
-  // major seventh family: maj7, M9, Δ, ma13 (a bare "maj" is just a major triad)
+  // alterations written after the number (Brazilian/European charts): 5- 5+ 9- 9+ 11+ 13-
   (rest, t) => {
-    const m = /^(?:maj|Maj|MAJ|ma(?!dd)|M|Δ|△)(13|11|9|7)?/.exec(rest)
+    const m = /^(13|11|9|5)([+-])(?!\d)/.exec(rest)
+    if (!m) return 0
+    const sign = m[2] === '+' ? 1 : -1
+    const num = Number(m[1])
+    if (num === 5) {
+      t.fifth = sign > 0 ? '#5' : 'b5'
+      return m[0].length
+    }
+    if ((num === 11 && sign < 0) || (num === 13 && sign > 0)) return 0
+    addDegree(t, num, sign)
+    return m[0].length
+  },
+  // minor written MI / Mi (must come before the major-seventh rule's bare M)
+  (rest, t) => {
+    const m = /^(?:MI|Mi)(?![a-z])/.exec(rest)
+    if (!m) return 0
+    t.minor = true
+    return m[0].length
+  },
+  // major seventh: maj7, M9, MA7, Δ; "7M" / "7maj" qualify a 7 already read;
+  // a bare "maj"/"M" right after the root is just a major triad
+  (rest, t) => {
+    const m = /^(?:maj|Maj|MAJ|MA|Ma|ma(?!dd)|M|Δ|△)(13|11|9|7)?/.exec(rest)
     if (!m) return 0
     const n = m[1] ? Number(m[1]) : rest.startsWith('Δ') || rest.startsWith('△') ? 7 : null
     if (n !== null) {
       t.majorSeventh = true
       t.family = Math.max(t.family ?? 0, n)
-    }
+    } else if (t.family !== null && t.family >= 7) t.majorSeventh = true
     return m[0].length
   },
-  // diminished: dim, dim7, °, °7, o7
+  // diminished: dim, dim7, °, °7, o7, and 7° / 7dim
   (rest, t) => {
     const m = /^(?:dim|°|o)(7)?/.exec(rest)
     if (!m) return 0
     t.dim = true
     if (m[1]) t.dim7 = true
+    else if (t.family === 7 && !t.majorSeventh) {
+      t.dim7 = true
+      t.family = null
+    }
     return m[0].length
   },
   // half-diminished: ø, ø7
@@ -90,12 +151,15 @@ const RULES: readonly TokenRule[] = [
     t.halfDim = true
     return m[0].length
   },
-  // augmented: aug, + (but "+5"/"+9"/"+11" are alterations)
+  // augmented: "aug" anywhere; "+" only before any number ("+5"/"+9"/"+11" are alterations)
   (rest, t) => {
-    const m = /^(?:aug|\+(?!(?:5|9|11)(?!\d)))/.exec(rest)
-    if (!m) return 0
+    if (rest.startsWith('aug')) {
+      t.aug = true
+      return 3
+    }
+    if (!/^\+(?!(?:5|9|11)(?!\d))/.test(rest) || hasQualifier(t)) return 0
     t.aug = true
-    return m[0].length
+    return 1
   },
   // sus, sus2, sus4
   (rest, t) => {
@@ -104,25 +168,26 @@ const RULES: readonly TokenRule[] = [
     t.sus.add(m[1] === '2' ? 2 : 4)
     return m[0].length
   },
-  // alterations: b5 #5 b9 #9 #11 b13 (also with +/-), only after a quality or number
+  // alterations: b5 #5 b6 b9 #9 #11 b13 (also with +/-; "-" only after a quality or number)
   (rest, t) => {
-    const m = /^([b#♭♯+-])(13|11|9|5)(?!\d)/.exec(rest)
+    const m = /^([b#♭♯+-])(13|11|9|6|5)(?!\d)/.exec(rest)
     if (!m) return 0
     const sign = m[1] === '#' || m[1] === '♯' || m[1] === '+' ? 1 : -1
     const num = Number(m[2])
-    if (m[1] === '-' && !(t.minor || t.family !== null || t.sixth || t.dim || t.aug)) return 0
+    if (m[1] === '-' && !hasQualifier(t)) return 0
     if (num === 5) {
       t.fifth = sign > 0 ? '#5' : 'b5'
       return m[0].length
     }
-    if (num === 11 && sign < 0) return 0 // b11 is not a thing
-    t.added.add(mod12((degreeToSemitones(String(num)) ?? 0) + sign))
+    if ((num === 11 && sign < 0) || (num === 6 && sign > 0)) return 0 // no b11 or #6
+    addDegree(t, num, sign)
     return m[0].length
   },
-  // minor: m, min, mi, -
+  // minor: m, min, mi; "-" only right after the root (C-7), never after a number
   (rest, t) => {
     const m = /^(?:min|mi|m|-)/.exec(rest)
     if (!m) return 0
+    if (m[0] === '-' && hasQualifier(t)) return 0
     t.minor = true
     return m[0].length
   },
@@ -135,10 +200,13 @@ const RULES: readonly TokenRule[] = [
     else if (n === 5) t.power = true
     else if (n === 2 || n === 4) t.sus.add(n)
     else if (n === 7 && t.dim) t.dim7 = true
-    else if (t.family === null || t.family < 7) t.family = n
+    else if (n !== 7 && t.sixth && t.family === null) {
+      // A tension after a sixth chord is added, not a family: C6(9) = C6/9, not C13
+      addDegree(t, n, 0)
+    } else if (t.family === null || t.family < 7) t.family = n
     else {
       // A natural tension after the family number: C7(9), C7(13), C9(13)
-      t.added.add(mod12(degreeToSemitones(String(n)) ?? 0))
+      addDegree(t, n, 0)
     }
     return m[0].length
   },
@@ -277,18 +345,21 @@ export function formatSuffix(chord: Chord): string {
   const fifthConsumed = quality === 'dim' || quality === 'dim7' || quality === 'aug'
 
   if (s.seventh === '7' || s.seventh === 'b7') {
-    // The parser lets an altered 9 / 11 replace the natural one implied by 9, 11 and 13 chords,
-    // so the natural tension may only be folded into the number when no altered one is present.
+    // The parser lets an altered 9 / 11 replace the natural one implied by 9, 11 and 13 chords
+    // (C13b9 has no natural 9), so a natural 9 is folded into the number only without an
+    // altered one, and an 11 chord needs a natural 11.
     let n = 7
-    const natural9 = tensions.has('9') && !tensions.has('b9') && !tensions.has('#9')
-    if (natural9 && tensions.has('13')) {
+    const altered9 = tensions.has('b9') || tensions.has('#9')
+    const natural9 = tensions.has('9') && !altered9
+    const ninth = natural9 || altered9
+    if (tensions.has('13') && ninth) {
       n = 13
       tensions.delete('13')
-      tensions.delete('9')
-    } else if (natural9 && tensions.has('11') && !tensions.has('#11')) {
+      if (natural9) tensions.delete('9')
+    } else if (tensions.has('11') && !tensions.has('#11') && ninth) {
       n = 11
       tensions.delete('11')
-      tensions.delete('9')
+      if (natural9) tensions.delete('9')
     } else if (natural9) {
       n = 9
       tensions.delete('9')
@@ -321,9 +392,57 @@ export function formatSuffix(chord: Chord): string {
   return quality + numberPart + sus + altText + adds.join('') + omits.join('')
 }
 
+const LETTERS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'] as const
+const LETTER_PCS = [0, 2, 4, 5, 7, 9, 11] as const
+
+/** Letter steps from the root to the bass, read from the chord's structure (E/G#, not E/Ab). */
+function letterSteps(chord: Chord, interval: number): number {
+  const s = describe(chord)
+  switch (interval) {
+    case 1:
+    case 2:
+      return 1
+    case 3:
+    case 4:
+      return 2
+    case 5:
+      return 3
+    case 6:
+      return s.fifth === 'b5' ? 4 : 3
+    case 7:
+      return 4
+    case 8:
+      return s.fifth === '#5' ? 4 : 5
+    case 9:
+      return s.seventh === 'bb7' ? 6 : 5
+    default:
+      return 6
+  }
+}
+
+function spellBass(chord: Chord, bass: PitchClass, rootName: string, spelling: Spelling): string {
+  const letterIndex = LETTERS.indexOf((rootName[0] ?? 'C') as (typeof LETTERS)[number])
+  const target = (letterIndex + letterSteps(chord, mod12(bass - chord.root))) % 7
+  const natural = LETTER_PCS[target] ?? 0
+  const offset = ((bass - natural + 18) % 12) - 6 // −6..5
+  // Avoid double accidentals: fall back to the plain spelling.
+  if (Math.abs(offset) > 1) return spellPitchClass(bass, spelling)
+  return (LETTERS[target] ?? 'C') + (offset === 1 ? '#' : offset === -1 ? 'b' : '')
+}
+
+function spellRoot(chord: Chord, spelling: Spelling): string {
+  const s = describe(chord)
+  const diminished = s.third === 'm3' && s.fifth === 'b5' && s.seventh !== 'b7'
+  const chromatic = typeof spelling !== 'object' || spelling.diatonic?.[chord.root] === false
+  // Chromatic diminished chords are leading-tone chords, spelled with sharps (G#dim, D#dim7).
+  if (diminished && chromatic && spelling !== 'flat') return spellPitchClass(chord.root, 'sharp')
+  return spellPitchClass(chord.root, spelling)
+}
+
 /** Formats a chord as a common chord symbol, e.g. `F#m7b5`, `Bb/D`, `Csus4add9`. */
 export function formatChordSymbol(chord: Chord, options: FormatOptions = {}): string {
   const spelling = options.spelling ?? 'neutral'
-  const bass = chord.bass === null ? '' : `/${spellPitchClass(chord.bass, spelling)}`
-  return spellPitchClass(chord.root, spelling) + formatSuffix(chord) + bass
+  const root = spellRoot(chord, spelling)
+  const bass = chord.bass === null ? '' : `/${spellBass(chord, chord.bass, root, spelling)}`
+  return root + formatSuffix(chord) + bass
 }

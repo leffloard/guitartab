@@ -136,7 +136,9 @@ export const DEFAULT_FIDELITY: FidelityWeights = {
   addedOther: 2,
   clash: 10,
   wrongSlashBass: 1.5,
-  wrongRootBass: 1,
+  // On a guitar the lowest string defines the inversion: a wrong bass is as bad as a wrong
+  // slash bass, so inversions only win when they are much easier.
+  wrongRootBass: 1.5,
 }
 
 function toneWeight(t: ChordTone, w: FidelityWeights): number {
@@ -173,7 +175,6 @@ export function clashes(target: Chord, interval: number): boolean {
 }
 
 function addedPenalty(target: Chord, interval: number, w: FidelityWeights): number {
-  const s = describe(target)
   if (clashes(target, interval)) return w.clash
   switch (interval) {
     case 10:
@@ -189,14 +190,85 @@ function addedPenalty(target: Chord, interval: number, w: FidelityWeights): numb
       return w.addedFifth
     case 3:
     case 4:
-      return s.third === null ? w.addedThirdToPowerChord : w.addedOther
+      return describe(target).third === null ? w.addedThirdToPowerChord : w.addedOther
     default:
       return w.addedOther
   }
 }
 
+/**
+ * Tones a voicing may leave out without changing what the chord is: a perfect fifth and the
+ * natural 9 / 11 below the top tension of an extended chord (C7 `x32310` has no G, a C13
+ * voicing rarely has the 9). Altered tensions (b9, #9, #11, b13) define the chord and stay.
+ */
+function isOptional(t: ChordTone): boolean {
+  if (t.role === 'fifth') return !t.essential
+  return t.role === 'tension' && !t.highest && (t.interval === 2 || t.interval === 5)
+}
+
+/**
+ * Everything about a target chord that scoring needs, computed once and reused for every
+ * candidate shape (the hot path when ranking hundreds of shapes for each capo).
+ */
+export interface PreparedTarget {
+  chord: Chord
+  /** Bitmask of the target's tone intervals (including a non-chord slash bass). */
+  toneMask: number
+  /** Bitmask of the tones that must sound. */
+  requiredMask: number
+  /** Weight of each interval as a target tone (0 if not a tone). */
+  toneWeights: readonly number[]
+  /** Penalty for each interval if a voicing adds it. */
+  addedPenalties: readonly number[]
+  clashMask: number
+  total: number
+  wantedBass: PitchClass
+  wrongBassPenalty: number
+}
+
+export function prepareTarget(
+  target: Chord,
+  w: FidelityWeights = DEFAULT_FIDELITY,
+): PreparedTarget {
+  const toneWeights = new Array<number>(12).fill(0)
+  let toneMask = 0
+  let requiredMask = 0
+  let total = 0
+  for (const t of chordTones(target)) {
+    const weight = toneWeight(t, w)
+    toneWeights[t.interval] = weight
+    toneMask |= 1 << t.interval
+    if (!isOptional(t)) requiredMask |= 1 << t.interval
+    total += weight
+  }
+  const addedPenalties = new Array<number>(12).fill(0)
+  let clashMask = 0
+  for (let i = 0; i < 12; i++) {
+    if (toneMask & (1 << i)) continue
+    addedPenalties[i] = addedPenalty(target, i, w)
+    if (clashes(target, i)) clashMask |= 1 << i
+  }
+  return {
+    chord: target,
+    toneMask,
+    requiredMask,
+    toneWeights,
+    addedPenalties,
+    clashMask,
+    total,
+    wantedBass: target.bass ?? target.root,
+    wrongBassPenalty: target.bass === null ? w.wrongRootBass : w.wrongSlashBass,
+  }
+}
+
+function playedMask(target: Chord, played: PlayedNotes): number {
+  let mask = 0
+  for (const pc of played.pcs) mask |= 1 << mod12(pc - target.root)
+  return mask
+}
+
 export interface FidelityResult {
-  /** 0..1, where 1 = every chord tone present, nothing added, correct bass. */
+  /** 0..1, where 1 = every required chord tone present, nothing added, correct bass. */
   value: number
   /** Required chord tones (intervals above the root) the voicing does not play. */
   missing: number[]
@@ -208,57 +280,52 @@ export interface FidelityResult {
   bassOk: boolean
 }
 
-/** Both sides are expressed in the same space (e.g. shape space with the capo removed). */
+/**
+ * Fidelity of `played` to the prepared target (both in the same space, e.g. shape space with
+ * the capo removed). Optional tones that are left out cost nothing, consistent with
+ * {@link realizes}; they still count in the denominator.
+ */
+export function fidelityOf(p: PreparedTarget, played: PlayedNotes): FidelityResult {
+  const mask = playedMask(p.chord, played)
+  let penalty = 0
+  const missing: number[] = []
+  const added: number[] = []
+  for (let i = 0; i < 12; i++) {
+    const bit = 1 << i
+    if (p.requiredMask & bit && !(mask & bit)) {
+      penalty += p.toneWeights[i] ?? 0
+      missing.push(i)
+    } else if (mask & bit && !(p.toneMask & bit)) {
+      penalty += p.addedPenalties[i] ?? 0
+      added.push(i)
+    }
+  }
+  const bassOk = played.lowest === p.wantedBass
+  if (!bassOk) penalty += p.wrongBassPenalty
+  const value = Math.min(1, Math.max(0, 1 - penalty / p.total))
+  return { value, missing, added, clash: (mask & p.clashMask) !== 0, bassOk }
+}
+
 export function fidelity(
   target: Chord,
   played: PlayedNotes,
   w: FidelityWeights = DEFAULT_FIDELITY,
 ): FidelityResult {
-  const tones = chordTones(target)
-  const playedIntervals = new Set<number>(played.pcs.map((pc) => mod12(pc - target.root)))
-  const toneIntervals = new Set<number>(tones.map((t) => t.interval))
-
-  let total = 0
-  let penalty = 0
-  const missing: number[] = []
-  for (const t of tones) {
-    const weight = toneWeight(t, w)
-    total += weight
-    if (!playedIntervals.has(t.interval)) {
-      penalty += weight
-      missing.push(t.interval)
-    }
-  }
-  const added: number[] = []
-  let clash = false
-  for (const i of [...playedIntervals].sort((a, b) => a - b)) {
-    if (toneIntervals.has(i)) continue
-    added.push(i)
-    penalty += addedPenalty(target, i, w)
-    if (clashes(target, i)) clash = true
-  }
-  const wantedBass: PitchClass = target.bass ?? target.root
-  const bassOk = played.lowest === wantedBass
-  if (!bassOk) penalty += target.bass === null ? w.wrongRootBass : w.wrongSlashBass
-
-  const value = Math.min(1, Math.max(0, 1 - penalty / total))
-  return { value, missing, added, clash, bassOk }
+  return fidelityOf(prepareTarget(target, w), played)
 }
 
 /**
  * Strict check used by the `original` and `capo` modes: the voicing plays the chord as written.
- * Every chord tone must sound except a perfect fifth and non-highest tensions (C7 `x32310`
- * has no G, a C13 voicing rarely has the 9), nothing may be added, and the lowest note must
- * be the written bass (the root unless it is a slash chord).
+ * Every required tone sounds (optional ones: see {@link isOptional}), nothing is added, and the
+ * lowest note is the written bass (the root unless it is a slash chord).
  */
+export function realizesPrepared(p: PreparedTarget, played: PlayedNotes): boolean {
+  const mask = playedMask(p.chord, played)
+  return (
+    (mask & ~p.toneMask) === 0 && (p.requiredMask & ~mask) === 0 && played.lowest === p.wantedBass
+  )
+}
+
 export function realizes(target: Chord, played: PlayedNotes): boolean {
-  const playedIntervals = new Set<number>(played.pcs.map((pc) => mod12(pc - target.root)))
-  const tones = chordTones(target)
-  const toneIntervals = new Set<number>(tones.map((t) => t.interval))
-  for (const i of playedIntervals) if (!toneIntervals.has(i)) return false
-  for (const t of tones) {
-    const optional = (t.role === 'fifth' && !t.essential) || (t.role === 'tension' && !t.highest)
-    if (!optional && !playedIntervals.has(t.interval)) return false
-  }
-  return played.lowest === (target.bass ?? target.root)
+  return realizesPrepared(prepareTarget(target), played)
 }

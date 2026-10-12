@@ -307,6 +307,29 @@ const CORPUS: readonly (readonly [string, string])[] = [
   ['A7sus4', 'A:sus4(b7)'],
   ['Dsus2', 'D:sus2'],
   ['G6', 'G:maj6'],
+  // Brazilian / European chord-book notations
+  ['Bm7(5-)', 'B:hdim7'],
+  ['E7(9-)', 'E:7(b9)'],
+  ['C7(9+)', 'C:7(#9)'],
+  ['G7(5+)', 'G:aug(b7)'],
+  ['G5+', 'G:aug'],
+  ['C7(13-)', 'C:7(b13)'],
+  ['C(11+)', 'C:maj(#11)'],
+  ['C7M', 'C:maj7'],
+  ['C7maj', 'C:maj7'],
+  ['Am7M', 'A:minmaj7'],
+  ['Am(7M)', 'A:minmaj7'],
+  ['C7M(9)', 'C:maj9'],
+  ['CMA7', 'C:maj7'],
+  ['CMI7', 'C:min7'],
+  ['C6(9)', 'C:maj6(9)'],
+  ['Cm6(9)', 'C:min6(9)'],
+  ['G7°', 'G:dim7'],
+  ['G7dim', 'G:dim7'],
+  ['C7/9', 'C:9'],
+  ['Cm(b6)', 'C:min(b13)'],
+  ['C9-5', 'C:9(b5,*5)'],
+  ['C13b9', 'C:7(b9,13)'],
 ]
 
 describe('chord symbols', () => {
@@ -314,7 +337,21 @@ describe('chord symbols', () => {
     expect(symbol(sym)).toEqual(harte(harteLabel))
   })
 
-  it.each(['', 'H', 'Cxyz', 'C7alt', 'C7b11', 'Am/X', 'm7', '7', 'Caddx'])('rejects %j', (bad) => {
+  it.each([
+    '',
+    'H',
+    'Cxyz',
+    'C7alt',
+    'C7b11',
+    'Am/X',
+    'm7',
+    '7',
+    'Caddx',
+    'A7+',
+    'C13+',
+    'C11-',
+    'C6#6',
+  ])('rejects %j', (bad) => {
     expect(parseChordSymbol(bad).ok).toBe(false)
     expect(tryParseChordSymbol(bad)).toBeNull()
   })
@@ -356,6 +393,9 @@ describe('chord symbols', () => {
       ['Csus2sus4', 'Csus4add9'],
       ['Cno5', 'Cno5'],
       ['C7no3', 'C7no3'],
+      ['C13b9#11', 'C13b9#11'],
+      ['C11b9', 'C11b9'],
+      ['C7M', 'Cmaj7'],
     ]
     for (const [input, expected] of cases)
       expect(formatChordSymbol(symbol(input)), input).toBe(expected)
@@ -364,6 +404,21 @@ describe('chord symbols', () => {
   it('spells roots and basses', () => {
     expect(formatChordSymbol(symbol('A#m/C#'), { spelling: 'flat' })).toBe('Bbm/Db')
     expect(formatChordSymbol(symbol('Bbm/Db'), { spelling: 'sharp' })).toBe('A#m/C#')
+    // The bass is spelled from the root's letter: the third of E is G#, not Ab.
+    expect(formatChordSymbol(symbol('E/Ab'))).toBe('E/G#')
+    expect(formatChordSymbol(symbol('B/Eb'))).toBe('B/D#')
+    expect(formatChordSymbol(symbol('Am/Ab'))).toBe('Am/G#')
+    expect(formatChordSymbol(symbol('C/Bb'))).toBe('C/Bb')
+    expect(formatChordSymbol(symbol('Cdim7/A'))).toBe('Cdim7/A')
+    expect(formatChordSymbol(symbol('Gb/Bb'), { spelling: 'flat' })).toBe('Gb/Bb')
+    expect(formatChordSymbol(symbol('C#/F'), { spelling: 'sharp' })).toBe('C#/E#')
+    // A double accidental (F## for the G under C#) falls back to the plain spelling.
+    expect(formatChordSymbol(symbol('C#/G'), { spelling: 'sharp' })).toBe('C#/G')
+    // Chromatic diminished chords are leading-tone chords, spelled with sharps.
+    expect(formatChordSymbol(symbol('Abdim'))).toBe('G#dim')
+    expect(formatChordSymbol(symbol('Ebdim7'))).toBe('D#dim7')
+    expect(formatChordSymbol(symbol('Ebdim7'), { spelling: 'flat' })).toBe('Ebdim7')
+    expect(formatChordSymbol(symbol('Ebm7b5'))).toBe('Ebm7b5')
   })
 
   it('round-trips every interval set and slash bass through format → parse', () => {

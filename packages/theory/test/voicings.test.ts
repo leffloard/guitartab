@@ -50,6 +50,13 @@ describe('shape analysis', () => {
       { fret: 1, from: 4, to: 5, strings: 2, full: false },
     ])
     expect(findBarres([x, 0, 2, 2, 2, 0], [x, x, 1, 2, 3, x])).toEqual([])
+    // A-shape barre: five strings count as a full barre, four as a mini barre
+    expect(findBarres([x, 2, 4, 4, 3, 2], [x, 1, 3, 4, 2, 1])).toEqual([
+      { fret: 2, from: 1, to: 5, strings: 5, full: true },
+    ])
+    expect(findBarres([x, x, 2, 2, 2, 2], [x, x, 1, 1, 1, 1])).toEqual([
+      { fret: 2, from: 2, to: 5, strings: 4, full: false },
+    ])
   })
 
   it('measures span, position, muted and open strings', () => {
@@ -176,10 +183,13 @@ describe('voicing library data', () => {
     const lib = getDefaultLibrary()
     expect(getDefaultLibrary()).toBe(lib)
     expect(lib.size).toBeGreaterThan(2500)
-    lib.byRoot.forEach((bucket, root) => {
-      expect(bucket.length).toBeGreaterThan(50)
-      for (const e of bucket) expect(e.chord.root).toBe(root)
+    lib.byPitchClass.forEach((bucket, pc) => {
+      expect(bucket.length).toBeGreaterThan(200)
+      for (const e of bucket) expect(e.played.pcs).toContain(pc)
     })
+    // A shape stored under one name is offered for every chord it plays.
+    const cSharpM7 = lib.byPitchClass[1]?.find((e) => e.voicing.id === 'x-4-2-1-0-0')
+    expect(cSharpM7?.chord.root).toBe(4) // stored by chords-db as E/C#
   })
 
   it('lets earlier files win for duplicate shapes and skips unusable records', () => {
@@ -200,9 +210,9 @@ describe('voicing library data', () => {
       },
     ])
     expect(lib.size).toBe(2)
-    expect(lib.byRoot[0]?.[0]?.voicing.fingers).toEqual([x, 3, 2, x, 1, x])
-    expect(lib.byRoot[0]?.[0]?.voicing.source).toBe('curated')
-    expect(lib.byRoot[0]?.[1]?.voicing).toMatchObject({
+    expect(lib.byPitchClass[0]?.[0]?.voicing.fingers).toEqual([x, 3, 2, x, 1, x])
+    expect(lib.byPitchClass[0]?.[0]?.voicing.source).toBe('curated')
+    expect(lib.byPitchClass[0]?.[1]?.voicing).toMatchObject({
       source: 'other',
       fingers: [x, 1, 2, 3, 4, 1],
     })
@@ -226,7 +236,7 @@ describe('difficulty and fidelity: the F example from the design', () => {
       frets: [x, x, x, 2, 1, 1],
       fingers: [x, x, x, 2, 1, 1],
       d: 4.0,
-      f: 1 - 1 / 7,
+      f: 1 - 1.5 / 7,
     },
   ] as const
 
@@ -335,7 +345,7 @@ describe('fidelity details', () => {
     fc.integer({ min: 0, max: 11 }),
   ])('fidelity is in [0, 1] and realizes implies no clash', (name, n) => {
     const target = transpose(chord(name), n)
-    for (const e of getDefaultLibrary().byRoot[target.root] ?? []) {
+    for (const e of getDefaultLibrary().byPitchClass[target.root] ?? []) {
       const f = fidelity(target, e.played)
       expect(f.value).toBeGreaterThanOrEqual(0)
       expect(f.value).toBeLessThanOrEqual(1)

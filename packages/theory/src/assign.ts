@@ -6,8 +6,8 @@
  *
  * This is an uncapacitated facility-location problem (Cornuéjols, Nemhauser & Wolsey, 1990):
  * NP-hard in general, but songs have only a handful of distinct chords, so exact
- * branch-and-bound after pruning is instant. The search is anytime: if the node limit is hit
- * it returns the best solution found so far (the first leaf is the greedy solution).
+ * branch-and-bound after pruning is instant. The search is anytime: each component starts from
+ * the greedy solution and, if its node limit is hit, keeps the best solution found so far.
  */
 
 export interface Candidate {
@@ -68,9 +68,15 @@ export function bruteForceAssignment(problem: AssignmentProblem): AssignmentSolu
   return best
 }
 
+/**
+ * @param nodeLimit search nodes per independent component
+ * @param maxCandidates candidates kept per symbol after exact pruning (cheapest first); a cap
+ *   that removes candidates makes the result a heuristic (`exact: false`)
+ */
 export function solveAssignment(
   problem: AssignmentProblem,
-  nodeLimit = 100_000,
+  nodeLimit = 20_000,
+  maxCandidates = 10,
 ): AssignmentSolution {
   const { weights, candidates, mu } = problem
   const n = candidates.length
@@ -86,6 +92,16 @@ export function solveAssignment(
     const best = list.reduce((m, c) => Math.min(m, c.cost), Infinity)
     return list.flatMap((c, k) => (w * (c.cost - best) <= mu + EPS ? [k] : []))
   })
+  let exact = true
+  for (let i = 0; i < n; i++) {
+    const ks = kept[i] ?? []
+    if (ks.length > maxCandidates) {
+      const list = candidates[i] ?? []
+      ks.sort((a, b) => (list[a]?.cost ?? 0) - (list[b]?.cost ?? 0) || a - b)
+      kept[i] = ks.slice(0, maxCandidates).sort((a, b) => a - b)
+      exact = false
+    }
+  }
 
   // 2. Independent components: symbols are linked when they share a candidate shape.
   const parent = Array.from({ length: n }, (_, i) => i)
@@ -110,10 +126,9 @@ export function solveAssignment(
     components.set(root, list)
   }
 
-  // 3. Branch and bound per component.
+  // 3. Branch and bound per component, each with its own node budget. The incumbent starts as
+  //    the greedy solution, so an interrupted search still returns a sensible assignment.
   const choice = new Array<number>(n).fill(0)
-  let exact = true
-  let nodes = 0
   for (const members of [...components.values()].sort((a, b) => (a[0] ?? 0) - (b[0] ?? 0))) {
     const order = [...members].sort((a, b) => (weights[b] ?? 0) - (weights[a] ?? 0) || a - b)
     const minCost = order.map((i) => {
@@ -124,27 +139,11 @@ export function solveAssignment(
     const suffix = new Array<number>(order.length + 1).fill(0)
     for (let d = order.length - 1; d >= 0; d--) suffix[d] = (suffix[d + 1] ?? 0) + (minCost[d] ?? 0)
 
-    let bestTotal = Infinity
-    let bestChoice: number[] = []
-    const current: number[] = []
     const opened = new Map<string, number>()
-
-    const dfs = (depth: number, partial: number): void => {
-      if (nodes > nodeLimit) {
-        exact = false
-        return
-      }
-      nodes++
-      if (depth === order.length) {
-        if (partial < bestTotal - EPS) {
-          bestTotal = partial
-          bestChoice = [...current]
-        }
-        return
-      }
+    const optionsAt = (depth: number) => {
       const i = order[depth] ?? 0
       const w = weights[i] ?? 0
-      const options = (kept[i] ?? [])
+      return (kept[i] ?? [])
         .map((k) => {
           const cand = candidates[i]?.[k]
           const id = cand?.id ?? ''
@@ -152,15 +151,46 @@ export function solveAssignment(
           return { k, id, marginal }
         })
         .sort((a, b) => a.marginal - b.marginal || a.k - b.k)
-      for (const { k, id, marginal } of options) {
+    }
+    const open = (id: string) => opened.set(id, (opened.get(id) ?? 0) + 1)
+    const close = (id: string) => {
+      const count = (opened.get(id) ?? 1) - 1
+      if (count === 0) opened.delete(id)
+      else opened.set(id, count)
+    }
+
+    // Greedy incumbent: cheapest marginal choice at each step.
+    let bestChoice: number[] = []
+    let bestTotal = 0
+    for (let d = 0; d < order.length; d++) {
+      const first = optionsAt(d)[0]
+      bestChoice.push(first?.k ?? 0)
+      bestTotal += first?.marginal ?? 0
+      if (first) open(first.id)
+    }
+    opened.clear()
+
+    let nodes = 0
+    const current: number[] = []
+    const dfs = (depth: number, partial: number): void => {
+      if (nodes++ > nodeLimit) {
+        exact = false
+        return
+      }
+      if (depth === order.length) {
+        if (partial < bestTotal - EPS) {
+          bestTotal = partial
+          bestChoice = [...current]
+        }
+        return
+      }
+      for (const { k, id, marginal } of optionsAt(depth)) {
         const next = partial + marginal
         if (next + (suffix[depth + 1] ?? 0) >= bestTotal - EPS) break
         current.push(k)
-        opened.set(id, (opened.get(id) ?? 0) + 1)
+        open(id)
         dfs(depth + 1, next)
-        const count = (opened.get(id) ?? 1) - 1
-        if (count === 0) opened.delete(id)
-        else opened.set(id, count)
+        close(id)
         current.pop()
       }
     }
