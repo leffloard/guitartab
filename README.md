@@ -8,7 +8,8 @@ draws the finger diagrams and keeps the chords in sync with the music while you 
 
 > **Status:** early development. Text mode works end to end: paste a chord sheet (chords over
 > lyrics or ChordPro) and get a barre-free version with capo, diagrams and alternatives, in
-> Turkish or English, offline too. Audio analysis comes next (M3).
+> Turkish or English, offline too. The audio analyzer (upload → beats, key, timed chords via
+> Chordino) runs as an API with a job queue; the synced player in the web app comes next (M4).
 
 ## Repository layout
 
@@ -27,7 +28,8 @@ See [docs/architecture.md](docs/architecture.md) for the design and
 ## Development
 
 Requirements: Node 24.15+ (or 22.22.2+) with Corepack, [uv](https://docs.astral.sh/uv/),
-and Docker for the full stack.
+ffmpeg (with ffprobe), g++, make and the Boost headers for the analyzer (Debian/Ubuntu:
+`apt install ffmpeg g++ make libboost-dev`), and Docker for the full stack.
 
 ```bash
 corepack enable          # uses the pnpm version pinned in package.json
@@ -37,7 +39,10 @@ pnpm lint && pnpm typecheck && pnpm test
 
 cd services/analyzer
 uv sync
+scripts/build-vamp-plugins.sh             # Chordino (needs g++, make, libboost-dev)
+uv run barrefree-download-models          # beat tracker weights
 uv run uvicorn barrefree_analyzer.app:create_app --factory --reload   # API on :8000
+uv run barrefree-worker                   # analysis worker
 uv run pytest
 ```
 

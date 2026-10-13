@@ -9,18 +9,14 @@ from starlette.staticfiles import StaticFiles
 from starlette.types import Scope
 
 from barrefree_analyzer import __version__
+from barrefree_analyzer.api import build_router
 from barrefree_analyzer.config import Settings, get_settings
-from barrefree_analyzer.schema import CamelModel
+from barrefree_analyzer.jobs import JobStore
+from barrefree_analyzer.limits import BodySizeLimit
+from barrefree_analyzer.schema import Features, Health
 
-
-class Features(CamelModel):
-    url_import: bool
-
-
-class Health(CamelModel):
-    status: str
-    version: str
-    features: Features
+#: Multipart overhead allowed on top of the audio file itself.
+_FORM_OVERHEAD = 64 * 1024
 
 
 class SpaStaticFiles(StaticFiles):
@@ -52,8 +48,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return Health(
             status="ok",
             version=__version__,
-            features=Features(url_import=settings.enable_url_import),
+            features=Features(
+                url_import=settings.enable_url_import,
+                recognizers=settings.recognizers,
+                max_upload_mb=settings.max_upload_mb,
+                max_duration_sec=settings.max_duration_sec,
+            ),
         )
+
+    app.include_router(build_router(settings, JobStore(settings.db_path)))
+    app.add_middleware(
+        BodySizeLimit,
+        max_bytes=settings.max_upload_mb * 2**20 + _FORM_OVERHEAD,
+        paths=("/api/jobs",),
+    )
 
     # Mount the SPA last so that /api routes take precedence.
     dist: Path | None = settings.web_dist_dir

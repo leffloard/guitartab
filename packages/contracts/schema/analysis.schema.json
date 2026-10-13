@@ -129,6 +129,234 @@
       ],
       "title": "Note",
       "type": "object"
+    },
+    "ApiError": {
+      "additionalProperties": false,
+      "properties": {
+        "detail": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "detail"
+      ],
+      "title": "ApiError",
+      "type": "object"
+    },
+    "Features": {
+      "additionalProperties": false,
+      "properties": {
+        "urlImport": {
+          "type": "boolean"
+        },
+        "recognizers": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "maxUploadMb": {
+          "type": "integer"
+        },
+        "maxDurationSec": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "urlImport",
+        "recognizers",
+        "maxUploadMb",
+        "maxDurationSec"
+      ],
+      "title": "Features",
+      "type": "object"
+    },
+    "Health": {
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "features": {
+          "$ref": "#/$defs/Features"
+        }
+      },
+      "required": [
+        "status",
+        "version",
+        "features"
+      ],
+      "title": "Health",
+      "type": "object"
+    },
+    "JobCreated": {
+      "additionalProperties": false,
+      "properties": {
+        "jobId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "jobId"
+      ],
+      "title": "JobCreated",
+      "type": "object"
+    },
+    "JobInfo": {
+      "additionalProperties": false,
+      "description": "State of an analysis job; ``result`` is set once the job is done.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "queued",
+            "running",
+            "done",
+            "failed"
+          ],
+          "type": "string"
+        },
+        "stage": {
+          "enum": [
+            "queued",
+            "decoding",
+            "separating",
+            "beats",
+            "key",
+            "chords",
+            "notes",
+            "done",
+            "failed"
+          ],
+          "type": "string"
+        },
+        "progress": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "source": {
+          "$ref": "#/$defs/JobSource"
+        },
+        "options": {
+          "$ref": "#/$defs/JobOptions"
+        },
+        "createdAt": {
+          "description": "Unix time, seconds.",
+          "type": "number"
+        },
+        "updatedAt": {
+          "description": "Unix time, seconds.",
+          "type": "number"
+        },
+        "expiresAt": {
+          "description": "When the server deletes the job and its audio.",
+          "type": "number"
+        },
+        "result": {
+          "anyOf": [
+            {
+              "$ref": "#"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "status",
+        "stage",
+        "progress",
+        "error",
+        "source",
+        "options",
+        "createdAt",
+        "updatedAt",
+        "expiresAt",
+        "result"
+      ],
+      "title": "JobInfo",
+      "type": "object"
+    },
+    "JobOptions": {
+      "additionalProperties": false,
+      "properties": {
+        "recognizer": {
+          "default": "chordino",
+          "description": "Chord recognizer to use.",
+          "type": "string"
+        },
+        "separate": {
+          "default": false,
+          "description": "Run source separation first (slow).",
+          "type": "boolean"
+        },
+        "transcribe": {
+          "default": false,
+          "description": "Transcribe notes for the tab mode.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "recognizer",
+        "separate",
+        "transcribe"
+      ],
+      "title": "JobOptions",
+      "type": "object"
+    },
+    "JobSource": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "upload",
+            "url"
+          ],
+          "type": "string"
+        },
+        "name": {
+          "description": "File name or track title, for display only.",
+          "type": "string"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "url"
+      ],
+      "title": "JobSource",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -188,6 +416,13 @@
       },
       "type": "array"
     },
+    "downbeats": {
+      "description": "Times of the first beat of each bar, in seconds.",
+      "items": {
+        "type": "number"
+      },
+      "type": "array"
+    },
     "chords": {
       "items": {
         "$ref": "#/$defs/ChordSegment"
@@ -212,6 +447,7 @@
     "timeSignature",
     "key",
     "beats",
+    "downbeats",
     "chords",
     "notes",
     "meta"

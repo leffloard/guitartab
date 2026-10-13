@@ -11,7 +11,9 @@ import json
 from pathlib import Path
 from typing import Any
 
-from barrefree_analyzer.schema import AnalysisResult
+from pydantic.json_schema import models_json_schema
+
+from barrefree_analyzer.schema import API_MODELS, AnalysisResult
 
 SCHEMA_ID = "https://github.com/leffloard/guitartab/schemas/analysis.schema.json"
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -37,10 +39,26 @@ def _drop_property_titles(node: Any) -> Any:
     return out
 
 
+def _retarget(node: Any, old: str, new: str) -> Any:
+    if isinstance(node, list):
+        return [_retarget(item, old, new) for item in node]
+    if isinstance(node, dict):
+        return {
+            k: (new if k == "$ref" and v == old else _retarget(v, old, new))
+            for k, v in node.items()
+        }
+    return node
+
+
 def build_schema() -> dict[str, Any]:
-    schema = _drop_property_titles(
-        AnalysisResult.model_json_schema(mode="serialization", by_alias=True)
-    )
+    """AnalysisResult at the root; the API models (jobs, errors, health) in ``$defs``."""
+    schema = AnalysisResult.model_json_schema(mode="serialization", by_alias=True)
+    _, api = models_json_schema([(model, "serialization") for model in API_MODELS], by_alias=True)
+    defs = {**schema.get("$defs", {}), **api.get("$defs", {})}
+    # JobInfo.result points at the root rather than at a second copy of AnalysisResult.
+    defs.pop("AnalysisResult", None)
+    schema = _retarget({**schema, "$defs": defs}, "#/$defs/AnalysisResult", "#")
+    schema = _drop_property_titles(schema)
     return {"$schema": "https://json-schema.org/draft/2020-12/schema", "$id": SCHEMA_ID, **schema}
 
 

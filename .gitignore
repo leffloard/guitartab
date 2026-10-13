@@ -7,6 +7,8 @@ coverage/
 
 # Python
 .venv/
+# Built Vamp plugins (services/analyzer/scripts/build-vamp-plugins.sh)
+.vamp/
 __pycache__/
 *.py[cod]
 .pytest_cache/

@@ -13,6 +13,10 @@ export interface AnalysisResult {
    * Beat times in seconds.
    */
   beats: number[]
+  /**
+   * Times of the first beat of each bar, in seconds.
+   */
+  downbeats: number[]
   chords: ChordSegment[]
   /**
    * Transcribed notes (only for the tab mode).
@@ -78,4 +82,96 @@ export interface AnalysisMeta {
    */
   separated: boolean
   processingSec: number
+}
+/**
+ * This interface was referenced by `AnalysisResult`'s JSON-Schema
+ * via the `definition` "ApiError".
+ */
+export interface ApiError {
+  detail: string
+}
+/**
+ * This interface was referenced by `AnalysisResult`'s JSON-Schema
+ * via the `definition` "Features".
+ */
+export interface Features {
+  urlImport: boolean
+  recognizers: string[]
+  maxUploadMb: number
+  maxDurationSec: number
+}
+/**
+ * This interface was referenced by `AnalysisResult`'s JSON-Schema
+ * via the `definition` "Health".
+ */
+export interface Health {
+  status: string
+  version: string
+  features: Features
+}
+/**
+ * This interface was referenced by `AnalysisResult`'s JSON-Schema
+ * via the `definition` "JobCreated".
+ */
+export interface JobCreated {
+  jobId: string
+}
+/**
+ * State of an analysis job; ``result`` is set once the job is done.
+ *
+ * This interface was referenced by `AnalysisResult`'s JSON-Schema
+ * via the `definition` "JobInfo".
+ */
+export interface JobInfo {
+  id: string
+  status: 'queued' | 'running' | 'done' | 'failed'
+  stage:
+    'queued' | 'decoding' | 'separating' | 'beats' | 'key' | 'chords' | 'notes' | 'done' | 'failed'
+  progress: number
+  error: string | null
+  source: JobSource
+  options: JobOptions
+  /**
+   * Unix time, seconds.
+   */
+  createdAt: number
+  /**
+   * Unix time, seconds.
+   */
+  updatedAt: number
+  /**
+   * When the server deletes the job and its audio.
+   */
+  expiresAt: number
+  result: AnalysisResult | null
+}
+/**
+ * This interface was referenced by `AnalysisResult`'s JSON-Schema
+ * via the `definition` "JobSource".
+ */
+export interface JobSource {
+  kind: 'upload' | 'url'
+  /**
+   * File name or track title, for display only.
+   */
+  name: string
+  url: string | null
+}
+/**
+ * This interface was referenced by `AnalysisResult`'s JSON-Schema
+ * via the `definition` "JobOptions".
+ */
+export interface JobOptions {
+  /**
+   * Chord recognizer to use.
+   */
+  recognizer: string
+  /**
+   * Run source separation first (slow).
+   */
+  separate: boolean
+  /**
+   * Transcribe notes for the tab mode.
+   */
+  transcribe: boolean
 }

@@ -25,14 +25,24 @@ COPY packages/theory packages/theory
 COPY data/voicings data/voicings
 RUN pnpm --filter @barrefree/web build
 
-# ---- 2. Python runtime ---------------------------------------------------------------
-FROM ${PYTHON_IMAGE} AS runtime
+# ---- 2. Chordino Vamp plugin (GPL-2.0-or-later), built from pinned source commits ------
+FROM ${PYTHON_IMAGE} AS vamp
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates git g++ make libboost-dev \
+    && rm -rf /var/lib/apt/lists/*
+COPY services/analyzer/scripts/build-vamp-plugins.sh /tmp/build-vamp-plugins.sh
+RUN /tmp/build-vamp-plugins.sh /opt/vamp
+
+# ---- 3. Python environment (vamp ships only an sdist: it needs a compiler) -------------
+FROM ${PYTHON_IMAGE} AS python-deps
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends g++ \
+    && rm -rf /var/lib/apt/lists/*
 COPY --from=ghcr.io/astral-sh/uv:0.13.0 /uv /usr/local/bin/uv
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     UV_PYTHON_DOWNLOADS=never \
-    UV_PROJECT_ENVIRONMENT=/opt/venv \
-    PYTHONUNBUFFERED=1
+    UV_PROJECT_ENVIRONMENT=/opt/venv
 WORKDIR /app
 COPY services/analyzer/pyproject.toml services/analyzer/uv.lock services/analyzer/README.md services/analyzer/LICENSE ./
 RUN --mount=type=cache,target=/root/.cache/uv \
@@ -41,14 +51,27 @@ COPY services/analyzer/src ./src
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --no-editable
 
+# ---- 4. Runtime ----------------------------------------------------------------------
+FROM ${PYTHON_IMAGE} AS runtime
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=python-deps /opt/venv /opt/venv
+COPY --from=vamp /opt/vamp /opt/vamp
 COPY --from=web /repo/apps/web/dist /app/web
 RUN useradd --uid 10001 --no-create-home --home-dir /app --shell /usr/sbin/nologin barrefree \
     && mkdir -p /data /models \
     && chown barrefree /data /models
 USER barrefree
+# Model weights are not in the image: the worker downloads them into /models (a volume) on
+# first start (barrefree-download-models), checking their SHA-256.
 ENV PATH="/opt/venv/bin:${PATH}" \
+    PYTHONUNBUFFERED=1 \
     WEB_DIST_DIR=/app/web \
-    DATA_DIR=/data
+    DATA_DIR=/data \
+    MODEL_DIR=/models \
+    VAMP_PATH=/opt/vamp \
+    NUMBA_CACHE_DIR=/tmp/numba-cache
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s \
     CMD ["python", "-c", "import urllib.request as u; u.build_opener(u.ProxyHandler({})).open('http://127.0.0.1:8000/api/health', timeout=2)"]

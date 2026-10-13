@@ -56,6 +56,53 @@ and a separate worker process claims them, so there is one less service to run o
 The data must live on a Docker volume, never on a Windows-mounted path, because SQLite locking
 over DrvFs/NTFS is unreliable.
 
+A single `UPDATE jobs SET status='running' ... WHERE id = (SELECT ... LIMIT 1) RETURNING *`
+claims the oldest queued job atomically (SQLite ≥ 3.35), so any number of workers can run. The
+API streams progress with Server-Sent Events by polling the job row every 0.5 s: no pub/sub is
+needed, and a reconnecting browser simply gets the current state.
+
+### 4a. Analysis pipeline (M3)
+
+```
+upload ─▶ magic bytes + size cap (413 while streaming) ─▶ ffprobe duration (1 s … 15 min) ─▶ queue
+worker ─▶ ffmpeg: mono 22.05 kHz float32 (analysis) + mono 128 kbit/s CBR MP3 (player), upload deleted
+       ─▶ beats + downbeats   beat_this (CPJKU, MIT weights, no DBN); librosa fallback
+       ─▶ chords              Chordino (NNLS chroma + HMM), Harte labels, block 8192 / step 1024
+       ─▶ clean-up            snap changes to beats (≤ ½ beat, ≤ 0.3 s), drop sub-beat segments,
+                              lead-in, tail and pauses ≥ 1 s → N, chroma-template confidence
+       ─▶ key                 Krumhansl–Kessler on CQT chroma; relative major/minor decided by
+                              the tonic chord's share and the first/last chord
+       ─▶ AnalysisResult JSON in the job row; everything deleted after the TTL (6 h)
+```
+
+Every step sits behind an interface (`pipeline/interfaces.py`), so recognizers (Chordino, BTC in
+M5), beat trackers and separators can be swapped and compared by `eval/evaluate.py`.
+
+**Why snap with a tolerance?** Recognizers report changes within ~0.1 s, but a beat tracker can
+miss beats or lock to half tempo. Snapping only to a beat within half a beat (at most 0.3 s) keeps
+the benefit without letting a wrong grid move chords; without the tolerance the synthetic majmin
+score drops from 99.7 % to 97 %. Segments shorter than 0.9 beat are absorbed into a neighbor; the
+threshold is clamped to 0.25–1 s so that a half- or double-tempo grid can neither erase real
+chords nor let jitter through (0.5 s without a beat grid).
+
+**Why the silence gate?** Chordino's 0.37 s analysis window smears the first and last chord over
+the silence around the music (about 7 % of each synthetic song), and its HMM carries a chord
+straight across a silent break. Every 23 ms block more than 45 dB below the loudest one is
+silent; the lead-in, the tail and every pause of 1 s or more are marked as no-chord.
+
+**Untrusted media.** ffmpeg probes content to choose a demuxer, and its playlist demuxers (HLS,
+DASH, concat) open the URLs and paths a playlist lists. An upload that starts with an ID3 header
+passes the MP3 magic-byte check, yet ffmpeg skips the tag and would read a DASH manifest behind it,
+fetching from the server's network (SSRF) or reading local files. So every ffprobe/ffmpeg call
+forces the demuxer that matches the accepted magic bytes (`-f mp3|wav|flac|ogg|mov`) and adds
+`-protocol_whitelist file`; a regression test serves real audio on a local HTTP server and checks
+that such uploads are rejected without a single request. Commands are argument lists (no shell),
+inputs carry the `file:` prefix, and each call has a timeout.
+
+**Privacy.** No accounts: an unguessable job id is the only key. The original upload is deleted
+as soon as it is decoded; the playback copy and the result are deleted after the TTL, and a
+`DELETE` removes them at once. The web app keeps its own copy in the browser (M4).
+
 ### 5. Python 3.12 (not 3.11)
 
 Python 3.11 reaches end of life in October 2027. librosa 1.0 and numpy 2.5 already require ≥ 3.12.

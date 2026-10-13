@@ -34,7 +34,10 @@ who cannot play barre chords.
   pinned commit; never edit by hand).
 - `services/analyzer`: Python 3.12 + FastAPI + a SQLite-queue worker. It returns **raw analysis
   only** (beats, key, Harte chord labels, notes). It must never implement capo, transposition or
-  voicing logic: those belong in `packages/theory`.
+  voicing logic: those belong in `packages/theory`. `api.py` (jobs API + SSE), `jobs.py` (queue),
+  `worker.py`, `audio.py` (ffmpeg), `pipeline/` (one interface per step: beats, chords, key,
+  separation, notes; `postprocess.py` is recognizer-independent), `synth.py` (synthetic songs with
+  exact ground truth), `models.py` (weight URLs + SHA-256), `eval/evaluate.py` (mir_eval).
 
 Decisions already made, with their rationale in docs/architecture.md and docs/licenses.md:
 
@@ -69,6 +72,9 @@ uv run ruff check . && uv run ruff format --check . && uv run mypy && uv run pyt
 uv run uvicorn barrefree_analyzer.app:create_app --factory --reload
 uv run barrefree-worker
 uv run barrefree-export-schema   # after changing schema.py; then run `pnpm gen:contracts`
+scripts/build-vamp-plugins.sh    # Chordino plugin into .vamp/ (git, g++, make, libboost-dev)
+uv run barrefree-download-models # model weights into local-data/models (SHA-256 checked)
+uv run python eval/evaluate.py --synthetic   # chord/key scores on synthetic songs
 
 # Docker (one image: api + worker)
 docker compose up --build
@@ -118,8 +124,17 @@ docker compose --profile tunnel up -d   # + Cloudflare Tunnel (CLOUDFLARE_TUNNEL
   component tests run, and real rendering is checked in Chromium with Playwright.
 - **Python:** strict mypy, ruff (incl. bandit `S` rules), pytest. The JSON Schema drift test runs
   in pytest.
-- **torch** (from M3) must come from the CPU wheel index (`download.pytorch.org/whl/cpu`).
-  Otherwise Linux pulls the CUDA wheels, which add several GB.
+- **torch** must come from the CPU wheel index (`download.pytorch.org/whl/cpu`, configured in
+  `[tool.uv.sources]`). Otherwise Linux pulls the CUDA wheels, which add several GB.
+- **vamp** (PyPI) is sdist-only: `[tool.uv.extra-build-dependencies]` gives its build NumPy and
+  setuptools; it needs g++. `VAMP_PATH` must be set before the first plugin call
+  (`Settings.vamp_path`, `/opt/vamp` in Docker). Chordino emits major chords as a bare root
+  (`C`, `C/3`); `chordino.to_harte` spells them `C:maj`.
+- **Model weights** are never committed or baked into images: `models.py` lists URL + SHA-256,
+  the worker downloads missing ones on start. Tests that need the plugin or weights skip, except
+  under `BARREFREE_REQUIRE_MODELS=1` (set by `pnpm check`), where they fail.
+- **Analyzer tests use synthetic audio only** (`synth.py`, ffmpeg `lavfi` sine); the M3
+  acceptance test runs the full pipeline on the synthetic songs (majmin ≥ 90 %).
 - **Docker Hub** may rate-limit anonymous pulls. The Dockerfile takes `NODE_IMAGE` and
   `PYTHON_IMAGE` build args (e.g. `mirror.gcr.io/library/node:24-slim`).
 - **Never commit** copyrighted audio, lyrics or tabs. Personal test data goes in `local-data/`
@@ -135,8 +150,8 @@ docker compose --profile tunnel up -d   # + Cloudflare Tunnel (CLOUDFLARE_TUNNEL
 | M0  | Monorepo skeleton, lint/format, Vitest + pytest, CI, Docker skeleton                            | ✅ done |
 | M1  | `packages/theory` + `data/voicings`: parser, transpose, voicings, scoring, capo search, 4 modes | ✅ done |
 | M2  | Web: text mode end to end, diagrams, mode/λ/capo UI, i18n, PWA                                  | ✅ done |
-| M3  | Analyzer: upload → decode → beats → key → Chordino; job queue + SSE                             | next    |
-| M4  | Synced player, speed/A-B loop, confidence marks, manual edits, IndexedDB library                |         |
+| M3  | Analyzer: upload → decode → beats → key → Chordino; job queue + SSE                             | ✅ done |
+| M4  | Synced player, speed/A-B loop, confidence marks, manual edits, IndexedDB library                | next    |
 | M5  | BTC (+ lv-chordia) recognizers, Demucs, evaluation report                                       |         |
 | M6  | URL import (YouTube + Spotify metadata → search → confirm), feature flag                        |         |
 | M7  | Tab mode (basic-pitch ONNX + tab assignment + alphaTab)                                         |         |

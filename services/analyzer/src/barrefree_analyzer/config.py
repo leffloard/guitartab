@@ -25,8 +25,47 @@ class Settings(BaseSettings):
     )
     max_upload_mb: int = Field(default=50, gt=0)
     max_duration_sec: int = Field(default=15 * 60, gt=0)
-    temp_file_ttl_sec: int = Field(default=6 * 60 * 60, gt=0)
+    temp_file_ttl_sec: int = Field(
+        default=6 * 60 * 60,
+        gt=0,
+        description="Finished jobs, their audio and results are deleted after this long.",
+    )
     worker_poll_interval_sec: float = Field(default=1.0, gt=0)
+    job_timeout_sec: int = Field(
+        default=60 * 60,
+        gt=0,
+        description="A running job with no progress for this long is marked failed.",
+    )
+    max_pending_jobs: int = Field(default=20, gt=0, description="Queued + running jobs.")
+    upload_rate_per_min: int = Field(default=6, gt=0, description="New jobs per client.")
+    client_ip_header: str | None = Field(
+        default=None,
+        description="Header holding the real client IP behind a trusted proxy, e.g. "
+        "'CF-Connecting-IP' with Cloudflare Tunnel. Unset: the TCP peer address.",
+    )
+    recognizers: list[str] = Field(
+        default=["chordino"], description="Enabled chord recognizers, the first is the default."
+    )
+    beat_tracker: str = Field(default="beat_this", description="'beat_this' or 'librosa'.")
+    vamp_path: Path = Field(
+        default=Path(__file__).resolve().parents[2] / ".vamp",
+        description="Folder with nnls-chroma.so (Chordino). Env: VAMP_PATH.",
+    )
+    model_dir: Path | None = Field(
+        default=None, description="Model weights and caches. Default: <data_dir>/models."
+    )
+
+    @property
+    def models_path(self) -> Path:
+        return self.model_dir if self.model_dir is not None else self.data_dir / "models"
+
+    @property
+    def jobs_path(self) -> Path:
+        return self.data_dir / "jobs"
+
+    @property
+    def db_path(self) -> Path:
+        return self.data_dir / "jobs.sqlite3"
 
 
 @lru_cache

@@ -21,6 +21,8 @@ class CamelModel(BaseModel):
 
     model_config = ConfigDict(
         alias_generator=to_camel,
+        # Also outside FastAPI's response encoding, e.g. SSE event data and the stored result.
+        serialize_by_alias=True,
         validate_by_name=True,
         validate_by_alias=True,
         extra="forbid",
@@ -81,8 +83,83 @@ class AnalysisResult(CamelModel):
     time_signature: str | None = Field(default=None, pattern=r"^\d+/\d+$", examples=["4/4"])
     key: Key | None = None
     beats: list[float] = Field(default_factory=list, description="Beat times in seconds.")
+    downbeats: list[float] = Field(
+        default_factory=list, description="Times of the first beat of each bar, in seconds."
+    )
     chords: list[ChordSegment] = Field(default_factory=list)
     notes: list[Note] = Field(
         default_factory=list, description="Transcribed notes (only for the tab mode)."
     )
     meta: AnalysisMeta
+
+
+# ---------------------------------------------------------------------------------------------
+# Jobs API
+
+JobStatus = Literal["queued", "running", "done", "failed"]
+JobStage = Literal[
+    "queued", "decoding", "separating", "beats", "key", "chords", "notes", "done", "failed"
+]
+
+
+class JobOptions(CamelModel):
+    recognizer: str = Field(default="chordino", description="Chord recognizer to use.")
+    separate: bool = Field(default=False, description="Run source separation first (slow).")
+    transcribe: bool = Field(default=False, description="Transcribe notes for the tab mode.")
+
+
+class JobSource(CamelModel):
+    kind: Literal["upload", "url"]
+    name: str = Field(description="File name or track title, for display only.")
+    url: str | None = None
+
+
+class JobInfo(CamelModel):
+    """State of an analysis job; ``result`` is set once the job is done."""
+
+    model_config = ConfigDict(title="JobInfo")
+
+    id: str
+    status: JobStatus
+    stage: JobStage
+    progress: float = Field(ge=0, le=1)
+    error: str | None = None
+    source: JobSource
+    options: JobOptions
+    created_at: float = Field(description="Unix time, seconds.")
+    updated_at: float = Field(description="Unix time, seconds.")
+    expires_at: float = Field(description="When the server deletes the job and its audio.")
+    result: AnalysisResult | None = None
+
+
+class JobCreated(CamelModel):
+    model_config = ConfigDict(title="JobCreated")
+
+    job_id: str
+
+
+class ApiError(CamelModel):
+    model_config = ConfigDict(title="ApiError")
+
+    detail: str
+
+
+class Features(CamelModel):
+    model_config = ConfigDict(title="Features")
+
+    url_import: bool
+    recognizers: list[str]
+    max_upload_mb: int
+    max_duration_sec: int
+
+
+class Health(CamelModel):
+    model_config = ConfigDict(title="Health")
+
+    status: str
+    version: str
+    features: Features
+
+
+#: Models exported next to AnalysisResult for the web app's API client.
+API_MODELS: tuple[type[CamelModel], ...] = (JobInfo, JobCreated, ApiError, Health)

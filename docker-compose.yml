@@ -18,6 +18,9 @@ x-app: &app
     ENABLE_URL_IMPORT: ${ENABLE_URL_IMPORT:-false}
     MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-50}
     MAX_DURATION_SEC: ${MAX_DURATION_SEC:-900}
+    # Header holding the visitor's IP, for the upload rate limit. Behind the Cloudflare Tunnel
+    # every request comes from the cloudflared container, so set it to CF-Connecting-IP there.
+    CLIENT_IP_HEADER: ${CLIENT_IP_HEADER:-}
   volumes:
     - jobs-data:/data
     - model-cache:/models

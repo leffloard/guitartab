@@ -11,6 +11,7 @@ const example: AnalysisResult = {
   timeSignature: '4/4',
   key: { tonic: 'A', mode: 'minor', confidence: 0.71 },
   beats: [0.52, 1.17],
+  downbeats: [0.52],
   chords: [{ start: 0.52, end: 3.1, label: 'A:min', confidence: 0.83 }],
   notes: [{ start: 1, end: 1.4, midi: 64, velocity: 0.7 }],
   meta: { recognizer: 'chordino', separated: true, processingSec: 48.2 },

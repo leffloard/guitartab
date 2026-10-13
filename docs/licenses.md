@@ -12,8 +12,7 @@
 The transform engine (`packages/theory`) and the voicing library are the parts most worth reusing
 in other projects, so they stay permissive (MIT).
 
-The analyzer is planned to use Chordino/NNLS-Chroma, a vamp plugin loaded into the analyzer
-process. That plugin is **GPL-2.0-or-later**. GPL-3.0-or-later lets us combine it with
+The analyzer uses Chordino/NNLS-Chroma, a Vamp plugin loaded into the analyzer process. That plugin is **GPL-2.0-or-later**. GPL-3.0-or-later lets us combine it with
 Apache-2.0 code such as basic-pitch, which GPL-2.0-only would not allow.
 
 The browser app talks to the analyzer only over HTTP. It neither links nor bundles analyzer
@@ -42,6 +41,27 @@ their own terms.
 | i18next, react-i18next                  | MIT              |                       |
 | FastAPI, Starlette, Pydantic, uvicorn   | MIT / BSD-3      |                       |
 
+### Analyzer (in use since M3)
+
+| Component                                   | License                                                   | Notes                                                                                             |
+| ------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| NNLS-Chroma / Chordino (`c4dm/nnls-chroma`) | GPL-2.0-or-later                                          | built from a pinned commit by `scripts/build-vamp-plugins.sh`; credit M. Mauch (QMUL), ISMIR 2010 |
+| Vamp plugin SDK (`c4dm/vamp-plugin-sdk`)    | MIT-style (QMUL no-endorsement clause); KissFFT BSD-3     | static library linked into the plugin                                                             |
+| `vamp` (vampy-host, PyPI)                   | MIT (no-endorsement clause)                               | Python host for the plugin                                                                        |
+| Boost headers                               | BSL-1.0                                                   | build time only (header-only)                                                                     |
+| beat_this 1.1.0 (CPJKU) + `final0` weights  | MIT (code and weights)                                    | weights downloaded by `barrefree-download-models`, SHA-256 pinned; not in the repo or image       |
+| torch / torchaudio (CPU wheels)             | Apache-2.0 (torch 2.14 metadata) / BSD                    | beat_this's model and mel spectrogram; installed from the PyTorch CPU index                       |
+| einops, rotary-embedding-torch              | MIT                                                       | beat_this dependencies                                                                            |
+| soxr (python-soxr)                          | LGPL-2.1-or-later                                         | resampling inside beat_this                                                                       |
+| librosa 1.0                                 | ISC                                                       | CQT chroma, fallback beat tracker                                                                 |
+| mir_eval 0.8                                | MIT                                                       | Harte label parsing, evaluation                                                                   |
+| NumPy, SciPy, scikit-learn, numba, llvmlite | BSD-3 / BSD-2 (llvmlite also Apache-2.0 + LLVM exception) | numeric stack                                                                                     |
+| soundfile                                   | BSD-3 (bundles libsndfile, LGPL-2.1)                      | writing the synthetic evaluation set                                                              |
+| python-multipart                            | Apache-2.0                                                | multipart uploads                                                                                 |
+| ffmpeg (Debian package, CLI)                | LGPL/GPL                                                  | decoding and the playback copy; a GPL source offer applies to published images                    |
+
+All of these are compatible with the analyzer's GPL-3.0-or-later.
+
 ### Planned: web
 
 | Component                        | License      | Notes                                                                                                                    |
@@ -54,17 +74,13 @@ their own terms.
 
 ### Planned: analyzer
 
-| Component                   | Code license     | Weights / data license                                                                        | Decision                                                                    |
-| --------------------------- | ---------------- | --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| beat_this (CPJKU)           | MIT              | MIT (README). Training data partly copyrighted or CC-restricted.                              | **Use** as the beat and downbeat tracker (M3), with `dbn=False`             |
-| librosa                     | ISC              | n/a                                                                                           | fallback beat tracker, chroma features                                      |
-| NNLS-Chroma / Chordino      | GPL-2.0-or-later | n/a (DSP, no learned weights)                                                                 | **Use** (M3). Call vamp directly; the GPL is why the analyzer is GPL-3.0+   |
-| BTC (jayg996/BTC-ISMIR19)   | MIT              | No explicit license. Trained on Isophonics, Billboard and other annotations of unclear terms. | Evaluate (M5). Download at setup with a pinned SHA-256; do not redistribute |
-| lv-chordia                  | MIT              | No separate statement. Same training-data caveat.                                             | Evaluate (M5)                                                               |
-| Demucs (`adefossez/demucs`) | MIT              | **Unspecified** on the model card. Trained partly on MUSDB18 (non-commercial research data).  | Optional (M5). Download at first run; do not bake into images               |
-| basic-pitch (Spotify)       | Apache-2.0       | Ships in the Apache-2.0 package                                                               | Use the ONNX model (M7); keep Spotify's NOTICE                              |
-| yt-dlp                      | Unlicense        | n/a                                                                                           | Optional URL import (M6), disabled by default                               |
-| ffmpeg (Debian package)     | LGPL/GPL         | n/a                                                                                           | CLI decode only; a GPL source offer applies to published images             |
+| Component                   | Code license | Weights / data license                                                                        | Decision                                                                    |
+| --------------------------- | ------------ | --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| BTC (jayg996/BTC-ISMIR19)   | MIT          | No explicit license. Trained on Isophonics, Billboard and other annotations of unclear terms. | Evaluate (M5). Download at setup with a pinned SHA-256; do not redistribute |
+| lv-chordia                  | MIT          | No separate statement. Same training-data caveat.                                             | Evaluate (M5)                                                               |
+| Demucs (`adefossez/demucs`) | MIT          | **Unspecified** on the model card. Trained partly on MUSDB18 (non-commercial research data).  | Optional (M5). Download at first run; do not bake into images               |
+| basic-pitch (Spotify)       | Apache-2.0   | Ships in the Apache-2.0 package                                                               | Use the ONNX model (M7); keep Spotify's NOTICE                              |
+| yt-dlp                      | Unlicense    | n/a                                                                                           | Optional URL import (M6), disabled by default                               |
 
 ### Rejected
 
