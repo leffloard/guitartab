@@ -1,10 +1,11 @@
 import type { Health } from '@barrefree/contracts'
 
+import { LinkCard } from '../components/LinkCard'
 import { UploadCard } from '../components/UploadCard'
 import type { Settings } from '../hooks/useSettings'
 import { TextMode } from './TextMode'
 
-/** Two ways in: analyze a recording, or paste a chord sheet (works offline). */
+/** Ways in: analyze a recording (or a link, when enabled), or paste a chord sheet (offline). */
 export function HomePage({
   settings,
   health,
@@ -17,6 +18,7 @@ export function HomePage({
   return (
     <>
       <UploadCard health={health} healthLoaded={healthLoaded} />
+      {health?.features.urlImport && <LinkCard health={health} />}
       <TextMode settings={settings} />
     </>
   )

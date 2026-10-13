@@ -13,7 +13,7 @@ from typing import Any
 
 from pydantic.json_schema import models_json_schema
 
-from barrefree_analyzer.schema import API_MODELS, AnalysisResult
+from barrefree_analyzer.schema import API_MODELS, REQUEST_MODELS, AnalysisResult
 
 SCHEMA_ID = "https://github.com/leffloard/guitartab/schemas/analysis.schema.json"
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -53,7 +53,11 @@ def _retarget(node: Any, old: str, new: str) -> Any:
 def build_schema() -> dict[str, Any]:
     """AnalysisResult at the root; the API models (jobs, errors, health) in ``$defs``."""
     schema = AnalysisResult.model_json_schema(mode="serialization", by_alias=True)
-    _, api = models_json_schema([(model, "serialization") for model in API_MODELS], by_alias=True)
+    _, api = models_json_schema(
+        [(model, "serialization") for model in API_MODELS]
+        + [(model, "validation") for model in REQUEST_MODELS],
+        by_alias=True,
+    )
     defs = {**schema.get("$defs", {}), **api.get("$defs", {})}
     # JobInfo.result points at the root rather than at a second copy of AnalysisResult.
     defs.pop("AnalysisResult", None)

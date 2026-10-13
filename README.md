@@ -57,8 +57,14 @@ docker compose up --build
 ## Legal
 
 The repository contains no copyrighted audio, lyrics or third-party tabs. Test audio is
-synthesized. Importing songs from YouTube/Spotify links is an optional, disabled-by-default
-module, and using it is **your responsibility** under those platforms' terms of service.
+synthesized.
+
+Importing songs from YouTube/Spotify links is an optional, **disabled-by-default** module
+(`ENABLE_URL_IMPORT=true` turns it on). Spotify provides only the title and artist; the audio
+comes from a YouTube video the user picks. Downloading from YouTube may violate its terms of
+service: whoever runs the server decides whether to enable it, and using it is **your
+responsibility**, for songs you have the right to use. YouTube often refuses data-center
+servers, so the feature is best effort (see [docs/architecture.md](docs/architecture.md) §4c).
 
 ## License
 

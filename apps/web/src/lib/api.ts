@@ -2,7 +2,14 @@
  * Client for the analyzer API (`/api/...` on the same origin). Types come from
  * `@barrefree/contracts`, generated from the analyzer's Pydantic models.
  */
-import type { ApiError, Health, JobCreated, JobInfo } from '@barrefree/contracts'
+import type {
+  ApiError,
+  Health,
+  JobCreated,
+  JobInfo,
+  Resolution,
+  UrlJobRequest,
+} from '@barrefree/contracts'
 
 export class ApiRequestError extends Error {
   readonly status: number
@@ -37,6 +44,27 @@ export async function fetchHealth(signal?: AbortSignal): Promise<Health | null> 
   } catch {
     return null
   }
+}
+
+async function postJson<T>(url: string, body: unknown, signal?: AbortSignal): Promise<T> {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    ...(signal ? { signal } : {}),
+  })
+  if (!response.ok) throw await errorFrom(response)
+  return (await response.json()) as T
+}
+
+/** Link import: what a Spotify or YouTube link points to, and the videos to choose from. */
+export function resolveLink(url: string, signal?: AbortSignal): Promise<Resolution> {
+  return postJson<Resolution>('/api/import/resolve', { url }, signal)
+}
+
+/** Queues the video the user confirmed; returns the job id. */
+export async function createUrlJob(request: UrlJobRequest, signal?: AbortSignal): Promise<string> {
+  return (await postJson<JobCreated>('/api/import/jobs', request, signal)).jobId
 }
 
 export function fetchJob(id: string, signal?: AbortSignal): Promise<JobInfo> {

@@ -21,6 +21,8 @@ x-app: &app
     # Header holding the visitor's IP, for the upload rate limit. Behind the Cloudflare Tunnel
     # every request comes from the cloudflared container, so set it to CF-Connecting-IP there.
     CLIENT_IP_HEADER: ${CLIENT_IP_HEADER:-}
+    # Optional, link import only: a cookies.txt of a signed-in YouTube session, inside /data.
+    URL_IMPORT_COOKIES: ${URL_IMPORT_COOKIES:-}
   volumes:
     - jobs-data:/data
     - model-cache:/models

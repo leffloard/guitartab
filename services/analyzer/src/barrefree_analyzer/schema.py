@@ -98,7 +98,16 @@ class AnalysisResult(CamelModel):
 
 JobStatus = Literal["queued", "running", "done", "failed"]
 JobStage = Literal[
-    "queued", "decoding", "separating", "beats", "key", "chords", "notes", "done", "failed"
+    "queued",
+    "downloading",
+    "decoding",
+    "separating",
+    "beats",
+    "key",
+    "chords",
+    "notes",
+    "done",
+    "failed",
 ]
 
 
@@ -162,5 +171,46 @@ class Health(CamelModel):
     features: Features
 
 
-#: Models exported next to AnalysisResult for the web app's API client.
-API_MODELS: tuple[type[CamelModel], ...] = (JobInfo, JobCreated, ApiError, Health)
+class Candidate(CamelModel):
+    """A YouTube video the user can pick for a link import."""
+
+    model_config = ConfigDict(title="Candidate")
+
+    video_id: str = Field(pattern=r"^[A-Za-z0-9_-]{11}$")
+    title: str
+    channel: str | None = None
+    duration_sec: float | None = None
+    url: str
+    thumbnail: str | None = None
+
+
+class Resolution(CamelModel):
+    """What a link points to, and the videos the user can choose from."""
+
+    model_config = ConfigDict(title="Resolution")
+
+    title: str | None = None
+    artist: str | None = None
+    query: str | None = Field(default=None, description="The YouTube search, for a Spotify link.")
+    candidates: list[Candidate]
+
+
+class ResolveRequest(CamelModel):
+    model_config = ConfigDict(title="ResolveRequest")
+
+    url: str = Field(max_length=500)
+
+
+class UrlJobRequest(CamelModel):
+    model_config = ConfigDict(title="UrlJobRequest")
+
+    video_id: str = Field(pattern=r"^[A-Za-z0-9_-]{11}$")
+    title: str | None = Field(default=None, max_length=200)
+    recognizer: str | None = None
+    separate: bool = False
+
+
+#: Models exported next to AnalysisResult for the web app's API client: responses...
+API_MODELS: tuple[type[CamelModel], ...] = (JobInfo, JobCreated, ApiError, Health, Resolution)
+#: ...and request bodies, exported as the server validates them (fields with defaults optional).
+REQUEST_MODELS: tuple[type[CamelModel], ...] = (ResolveRequest, UrlJobRequest)

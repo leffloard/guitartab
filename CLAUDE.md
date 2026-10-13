@@ -145,6 +145,10 @@ docker compose --profile tunnel up -d   # + Cloudflare Tunnel (CLOUDFLARE_TUNNEL
   setuptools; it needs g++. `VAMP_PATH` must be set before the first plugin call
   (`Settings.vamp_path`, `/opt/vamp` in Docker). Chordino emits major chords as a bare root
   (`C`, `C/3`); `chordino.to_harte` spells them `C:maj`.
+- **Link import** (`urlimport.py`, M6) is off by default and optional (`uv sync --extra url`;
+  the Docker image installs it). Never fetch a URL the user typed: parse it to an id with
+  `parse_link` and rebuild the request on a fixed host. yt-dlp stays limited to its YouTube
+  extractors. Tests use a fake `VideoSource` and never touch the network.
 - **Model weights** are never committed or baked into images: `models.py` lists URL + SHA-256
   (pinned commits), the worker downloads missing ones on start. Load weights without pickle code
   execution: safetensors (Demucs) or `torch.load(weights_only=True)` with an explicit
@@ -171,6 +175,6 @@ docker compose --profile tunnel up -d   # + Cloudflare Tunnel (CLOUDFLARE_TUNNEL
 | M3  | Analyzer: upload → decode → beats → key → Chordino; job queue + SSE                             | ✅ done |
 | M4  | Synced player, speed/A-B loop, confidence marks, manual edits, IndexedDB library                | ✅ done |
 | M5  | BTC (+ lv-chordia) recognizers, Demucs, evaluation report                                       | ✅ done |
-| M6  | URL import (YouTube + Spotify metadata → search → confirm), feature flag                        | next    |
-| M7  | Tab mode (basic-pitch ONNX + tab assignment + alphaTab)                                         |         |
+| M6  | URL import (YouTube + Spotify metadata → search → confirm), feature flag                        | ✅ done |
+| M7  | Tab mode (basic-pitch ONNX + tab assignment + alphaTab)                                         | next    |
 | M8  | Docker deploy guide (Windows Server/WSL2), Cloudflare Tunnel, benchmarks                        |         |

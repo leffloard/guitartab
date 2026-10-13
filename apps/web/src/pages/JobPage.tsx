@@ -14,12 +14,16 @@ type Phase =
   'waiting' | 'reconnecting' | 'saving' | 'failed' | 'expired' | 'saveFailed' | 'storageFull'
 
 function stagesFor(job: JobInfo | null): JobStage[] {
-  const stages: JobStage[] = ['decoding']
+  const stages: JobStage[] = job?.source.kind === 'url' ? ['downloading', 'decoding'] : ['decoding']
   if (job?.options.separate) stages.push('separating')
   stages.push('beats', 'chords', 'key')
   if (job?.options.transcribe) stages.push('notes')
   return stages
 }
+
+/** A file name loses its extension; a video title is kept as it is ("Caprice No.24"). */
+const songTitle = (source: JobInfo['source']) =>
+  source.kind === 'url' ? source.name : titleFromFileName(source.name)
 
 const isGone = (error: unknown) => error instanceof ApiRequestError && error.status === 404
 
@@ -51,7 +55,7 @@ export function JobPage({ id }: { id: string }) {
       await saveSong(
         {
           id,
-          title: titleFromFileName(done.source.name),
+          title: songTitle(done.source),
           createdAt: Date.now(),
           source: done.source,
           analysis: done.result,
@@ -131,7 +135,7 @@ export function JobPage({ id }: { id: string }) {
 
   const stages = stagesFor(job)
   const current = job ? stages.indexOf(job.stage) : -1
-  const title = job ? titleFromFileName(job.source.name) : null
+  const title = job ? songTitle(job.source) : null
 
   return (
     <section className="job" aria-labelledby="job-title" aria-busy={phase === 'waiting'}>

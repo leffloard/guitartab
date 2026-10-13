@@ -36,6 +36,8 @@ COPY services/analyzer/scripts/build-vamp-plugins.sh /tmp/build-vamp-plugins.sh
 RUN /tmp/build-vamp-plugins.sh /opt/vamp
 
 # ---- 3. Python environment (vamp ships only an sdist: it needs a compiler) -------------
+# The "url" extra (yt-dlp with its Deno runtime) is installed so that link import can be
+# switched on with ENABLE_URL_IMPORT alone; it stays unused while the flag is off.
 FROM ${PYTHON_IMAGE} AS python-deps
 RUN apt-get update \
     && apt-get install -y --no-install-recommends g++ \
@@ -48,10 +50,10 @@ ENV UV_COMPILE_BYTECODE=1 \
 WORKDIR /app
 COPY services/analyzer/pyproject.toml services/analyzer/uv.lock services/analyzer/README.md services/analyzer/LICENSE ./
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --no-install-project
+    uv sync --frozen --no-dev --no-install-project --extra url
 COPY services/analyzer/src ./src
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --no-editable
+    uv sync --frozen --no-dev --no-editable --extra url
 
 # ---- 4. Runtime ----------------------------------------------------------------------
 FROM ${PYTHON_IMAGE} AS runtime

@@ -143,6 +143,65 @@
       "title": "ApiError",
       "type": "object"
     },
+    "Candidate": {
+      "additionalProperties": false,
+      "description": "A YouTube video the user can pick for a link import.",
+      "properties": {
+        "videoId": {
+          "pattern": "^[A-Za-z0-9_-]{11}$",
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "channel": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "durationSec": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "url": {
+          "type": "string"
+        },
+        "thumbnail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "videoId",
+        "title",
+        "channel",
+        "durationSec",
+        "url",
+        "thumbnail"
+      ],
+      "title": "Candidate",
+      "type": "object"
+    },
     "Features": {
       "additionalProperties": false,
       "properties": {
@@ -230,6 +289,7 @@
         "stage": {
           "enum": [
             "queued",
+            "downloading",
             "decoding",
             "separating",
             "beats",
@@ -362,6 +422,115 @@
         "url"
       ],
       "title": "JobSource",
+      "type": "object"
+    },
+    "Resolution": {
+      "additionalProperties": false,
+      "description": "What a link points to, and the videos the user can choose from.",
+      "properties": {
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "artist": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "query": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The YouTube search, for a Spotify link."
+        },
+        "candidates": {
+          "items": {
+            "$ref": "#/$defs/Candidate"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "title",
+        "artist",
+        "query",
+        "candidates"
+      ],
+      "title": "Resolution",
+      "type": "object"
+    },
+    "ResolveRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "maxLength": 500,
+          "type": "string"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "title": "ResolveRequest",
+      "type": "object"
+    },
+    "UrlJobRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "videoId": {
+          "pattern": "^[A-Za-z0-9_-]{11}$",
+          "type": "string"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "recognizer": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "separate": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "videoId"
+      ],
+      "title": "UrlJobRequest",
       "type": "object"
     }
   },

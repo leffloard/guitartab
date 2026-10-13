@@ -166,6 +166,42 @@ as soon as it is decoded; the playback copy and the result are deleted after the
 - **One arrangement hook.** `useArrangement` wires the transform engine to the controls for
   both text mode and the song page, so capo, mode, λ and voicing preferences behave the same.
 
+### 4c. Link import (M6, off by default)
+
+```
+POST /api/import/resolve {url}
+  Spotify track  ─▶ oEmbed (title) + track page meta (artist) ─▶ yt-dlp "ytsearch5: artist title"
+  YouTube video  ─▶ yt-dlp metadata (no download)
+  ─▶ candidates; the user checks title, channel and length and picks one
+POST /api/import/jobs {videoId}  ─▶ queued like an upload
+worker: "downloading" (yt-dlp, bestaudio m4a, size and length limits) ─▶ the normal pipeline
+```
+
+- **Off unless the operator enables it** (`ENABLE_URL_IMPORT=true`): with the flag off the
+  routes do not exist (404), the worker refuses link jobs, and the web app hides the card. The
+  card always shows the terms-of-service and responsibility notice, and nothing is downloaded
+  before the user confirms one exact video.
+- **No server-side request to a user-typed URL.** `parse_link` accepts only exact hosts
+  (`open.spotify.com`, `youtube.com` and its `www`/`m`/`music` subdomains, `youtu.be`) without
+  user-info or ports, and reduces the link to an id; every request is rebuilt from that id on a
+  fixed host. Spotify pages are read with a 2 MB cap and a timeout; yt-dlp runs with
+  `allowed_extractors` limited to YouTube (its generic extractor, which would fetch any URL, is
+  excluded), no playlists, a size limit and a length check.
+- **YouTube and data-center servers.** YouTube asks many server addresses to sign in ("confirm
+  you're not a bot"): search keeps working but metadata and downloads fail. The worker reports
+  "YouTube refused this server", and the operator can provide a cookies file of a signed-in
+  session (`URL_IMPORT_COOKIES`, Netscape `cookies.txt` format). Risks: whoever holds the file
+  can use that Google account, and YouTube may flag or block an account used this way. Use a
+  separate account made for this, keep the file in the data volume readable only by the server
+  (`chmod 600`), and expect to replace it when the session expires. yt-dlp gets a private
+  in-memory copy for each call, so the file is never rewritten. This is why the feature is
+  optional and best effort.
+- **Why yt-dlp with Deno.** YouTube's player now needs JavaScript to be run to get stream URLs;
+  yt-dlp delegates that to an external runtime (`yt-dlp-ejs` scripts run by Deno). Both come
+  from PyPI through the optional `url` extra (`yt-dlp[default,deno]`), so the Docker image needs
+  no separate install. Alternatives: Invidious/Piped instances (third parties, unstable),
+  YouTube Data API (search only, no audio).
+
 ### 5. Python 3.12 (not 3.11)
 
 Python 3.11 reaches end of life in October 2027. librosa 1.0 and numpy 2.5 already require ≥ 3.12.

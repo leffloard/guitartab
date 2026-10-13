@@ -91,6 +91,20 @@ export interface ApiError {
   detail: string
 }
 /**
+ * A YouTube video the user can pick for a link import.
+ *
+ * This interface was referenced by `AnalysisResult`'s JSON-Schema
+ * via the `definition` "Candidate".
+ */
+export interface Candidate {
+  videoId: string
+  title: string
+  channel: string | null
+  durationSec: number | null
+  url: string
+  thumbnail: string | null
+}
+/**
  * This interface was referenced by `AnalysisResult`'s JSON-Schema
  * via the `definition` "Features".
  */
@@ -133,7 +147,16 @@ export interface JobInfo {
   id: string
   status: 'queued' | 'running' | 'done' | 'failed'
   stage:
-    'queued' | 'decoding' | 'separating' | 'beats' | 'key' | 'chords' | 'notes' | 'done' | 'failed'
+    | 'queued'
+    | 'downloading'
+    | 'decoding'
+    | 'separating'
+    | 'beats'
+    | 'key'
+    | 'chords'
+    | 'notes'
+    | 'done'
+    | 'failed'
   progress: number
   error: string | null
   source: JobSource
@@ -181,4 +204,36 @@ export interface JobOptions {
    * Transcribe notes for the tab mode.
    */
   transcribe: boolean
+}
+/**
+ * What a link points to, and the videos the user can choose from.
+ *
+ * This interface was referenced by `AnalysisResult`'s JSON-Schema
+ * via the `definition` "Resolution".
+ */
+export interface Resolution {
+  title: string | null
+  artist: string | null
+  /**
+   * The YouTube search, for a Spotify link.
+   */
+  query: string | null
+  candidates: Candidate[]
+}
+/**
+ * This interface was referenced by `AnalysisResult`'s JSON-Schema
+ * via the `definition` "ResolveRequest".
+ */
+export interface ResolveRequest {
+  url: string
+}
+/**
+ * This interface was referenced by `AnalysisResult`'s JSON-Schema
+ * via the `definition` "UrlJobRequest".
+ */
+export interface UrlJobRequest {
+  videoId: string
+  title?: string | null
+  recognizer?: string | null
+  separate?: boolean
 }

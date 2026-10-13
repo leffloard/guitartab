@@ -3,7 +3,7 @@
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -57,9 +57,20 @@ class Settings(BaseSettings):
         default=Path(__file__).resolve().parents[2] / ".vamp",
         description="Folder with nnls-chroma.so (Chordino). Env: VAMP_PATH.",
     )
+    url_import_cookies: Path | None = Field(
+        default=None,
+        description="Optional cookies.txt of a signed-in YouTube session for link import. "
+        "YouTube asks many data-center servers to sign in; see docs/architecture.md 4c.",
+    )
     model_dir: Path | None = Field(
         default=None, description="Model weights and caches. Default: <data_dir>/models."
     )
+
+    @field_validator("url_import_cookies", mode="before")
+    @classmethod
+    def _empty_is_none(cls, value: object) -> object:
+        # Compose passes unset variables as "": no file, not the current directory.
+        return None if value == "" else value
 
     @property
     def models_path(self) -> Path:

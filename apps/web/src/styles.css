@@ -870,6 +870,54 @@ input[type='file']:focus-visible + .button {
   gap: 10px;
 }
 
+/* Link import */
+.link-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+}
+
+.link-form .field {
+  flex: 1 1 18rem;
+}
+
+.candidates {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.candidates legend {
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.candidate {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.candidate.is-active {
+  border-color: var(--accent);
+}
+
+.candidate span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.candidate small {
+  color: var(--muted);
+}
+
 /* Library */
 .song-list {
   display: grid;

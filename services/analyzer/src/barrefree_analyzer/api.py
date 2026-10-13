@@ -5,10 +5,14 @@ GET    /api/jobs/{id}          job state, with the result once it is done
 GET    /api/jobs/{id}/events   Server-Sent Events: one "job" event per change, then "end"
 GET    /api/jobs/{id}/audio    normalized mono MP3 copy for the player (HTTP Range supported)
 DELETE /api/jobs/{id}          deletes the job, its audio and its result now
+
+With ENABLE_URL_IMPORT (see urlimport.py):
+POST   /api/import/resolve     {url} → the track and the YouTube videos to choose from
+POST   /api/import/jobs        {videoId, title?, recognizer?, separate?} → {jobId}
 """
 
 import shutil
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from pathlib import Path
 from typing import Annotated
 
@@ -35,8 +39,18 @@ from barrefree_analyzer.schema import (
     JobInfo,
     JobOptions,
     JobSource,
+    Resolution,
+    ResolveRequest,
+    UrlJobRequest,
 )
 from barrefree_analyzer.uploads import UnsupportedAudioError, UploadTooLargeError, save_upload
+from barrefree_analyzer.urlimport import (
+    ImportFailedError,
+    LinkError,
+    VideoSource,
+    resolve,
+    youtube_url,
+)
 
 #: How often the event stream looks for changes.
 _POLL_SEC = 0.5
@@ -47,6 +61,7 @@ _ERRORS: dict[int | str, dict[str, object]] = {
     413: {"model": ApiError},
     415: {"model": ApiError},
     429: {"model": ApiError},
+    502: {"model": ApiError},
     503: {"model": ApiError},
 }
 
@@ -197,5 +212,61 @@ def build_router(settings: Settings, store: JobStore) -> APIRouter:
                 raise HTTPException(status.HTTP_404_NOT_FOUND, "Job not found.")
             raise HTTPException(status.HTTP_409_CONFLICT, "The job is still running.")
         shutil.rmtree(job_dir(settings, job.id), ignore_errors=True)
+
+    return router
+
+
+def build_import_router(
+    settings: Settings, store: JobStore, source: Callable[[], VideoSource]
+) -> APIRouter:
+    """Link import (``ENABLE_URL_IMPORT``): resolve a link to videos, then queue the chosen one.
+
+    Nothing is downloaded here: the worker downloads the confirmed video like an upload.
+    """
+    router = APIRouter(prefix="/api/import", tags=["import"], responses=_ERRORS)
+    limiter = RateLimiter(settings.upload_rate_per_min * 2, 60.0)
+
+    def allow(request: Request) -> None:
+        if not limiter.allow(client_key(request, settings)):
+            raise HTTPException(
+                status.HTTP_429_TOO_MANY_REQUESTS, "Too many requests. Wait a minute."
+            )
+
+    @router.post("/resolve")
+    async def resolve_link(body: ResolveRequest, request: Request) -> Resolution:
+        allow(request)
+        try:
+            return await run_in_threadpool(resolve, body.url, source())
+        except LinkError as exc:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+        except ImportFailedError as exc:
+            raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc)) from exc
+
+    @router.post("/jobs", status_code=status.HTTP_201_CREATED)
+    async def create_url_job(body: UrlJobRequest, request: Request) -> JobCreated:
+        allow(request)
+        chosen = body.recognizer or settings.recognizers[0]
+        if chosen not in settings.recognizers:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Unknown recognizer '{chosen}'.")
+        if body.separate and not settings.separation:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, "Source separation is not available here."
+            )
+        if await run_in_threadpool(store.count_pending) >= settings.max_pending_jobs:
+            raise HTTPException(
+                status.HTTP_503_SERVICE_UNAVAILABLE, "The server is busy. Try again later."
+            )
+        job_id = new_job_id()
+        options = JobOptions(recognizer=chosen, separate=body.separate)
+        name = (body.title or body.video_id).strip()[:200] or body.video_id
+        await run_in_threadpool(
+            store.create,
+            job_id=job_id,
+            source=JobSource(kind="url", name=name, url=youtube_url(body.video_id)).model_dump(
+                mode="json"
+            ),
+            options=options.model_dump(mode="json"),
+        )
+        return JobCreated(job_id=job_id)
 
     return router

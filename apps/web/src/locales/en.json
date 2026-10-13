@@ -164,7 +164,8 @@
       "key": "Finding the key",
       "notes": "Transcribing notes",
       "done": "Done",
-      "failed": "Failed"
+      "failed": "Failed",
+      "downloading": "Downloading the audio"
     },
     "details": "Details",
     "saveFailed": "The analysis is done, but the song could not be saved on this device.",
@@ -242,5 +243,22 @@
     "delete": "Delete {{title}}",
     "deleteShort": "Delete",
     "unavailable": "This browser does not let the app store songs (site data may be blocked or the window may be private). Allow site data for this site to keep a library."
+  },
+  "link": {
+    "title": "Analyze a song from a link",
+    "notice": "Paste a Spotify track or a YouTube video link. Spotify only gives the title and artist; the audio comes from a YouTube video you choose. Downloading from YouTube may be against its terms of service, so use this only for songs you have the right to use, and at your own responsibility.",
+    "label": "Link",
+    "placeholder": "https://open.spotify.com/track/… or https://youtu.be/…",
+    "find": "Find",
+    "searched": "Videos found for “{{query}}”: pick the right one",
+    "confirm": "Is this the right video?",
+    "open": "open",
+    "analyze": "Analyze this video",
+    "limits": "Songs up to {{minutes}} minutes.",
+    "error": {
+      "unsupported": "This is not a Spotify track or YouTube video link.",
+      "failed": "The link could not be looked up right now. Try again later.",
+      "none": "No videos were found for this track."
+    }
   }
 }

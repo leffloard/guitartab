@@ -10,6 +10,7 @@ import signal
 import threading
 import time
 from collections.abc import Callable
+from pathlib import Path
 from types import FrameType
 
 from barrefree_analyzer.audio import (
@@ -25,7 +26,8 @@ from barrefree_analyzer.audio import (
 from barrefree_analyzer.config import Settings, get_settings
 from barrefree_analyzer.jobs import Job, JobStore
 from barrefree_analyzer.pipeline.run import Pipeline
-from barrefree_analyzer.schema import JobOptions
+from barrefree_analyzer.schema import JobOptions, JobSource
+from barrefree_analyzer.urlimport import ImportFailedError, VideoSource, parse_link
 
 log = logging.getLogger("barrefree.worker")
 
@@ -44,8 +46,10 @@ class Worker:
         self,
         settings: Settings,
         pipeline_factory: Callable[[Settings], Pipeline] | None = None,
+        video_source: Callable[[], VideoSource] | None = None,
     ) -> None:
         self.settings = settings
+        self._video_source = video_source
         self.store = JobStore(settings.db_path)
         self._pipeline_factory = pipeline_factory
         self._pipeline: Pipeline | None = None
@@ -78,6 +82,9 @@ class Worker:
         except AudioError as exc:
             log.info("job %s failed: %s", job.id, exc)
             self.store.fail(job.id, f"The audio could not be processed: {exc}.")
+        except ImportFailedError as exc:
+            log.info("job %s failed: %s", job.id, exc)
+            self.store.fail(job.id, f"The video could not be downloaded: {exc}")
         except Exception:
             log.exception("job %s crashed", job.id)
             self.store.fail(job.id, "The analysis failed unexpectedly.")
@@ -85,8 +92,31 @@ class Worker:
             log.info("job %s done in %.1f s", job.id, time.monotonic() - started)
         return True
 
+    def download(self, job: Job, directory: Path) -> None:
+        """Fetches the audio of a confirmed link (``ENABLE_URL_IMPORT``) as the job's upload."""
+        source = JobSource.model_validate(job.source)
+        if not self.settings.enable_url_import:
+            raise UserFacingError("Importing from links is switched off on this server.")
+        link = parse_link(source.url or "")
+        if link.kind != "youtube":
+            raise UserFacingError("Only a YouTube video can be downloaded.")
+        if self._video_source is None:
+            from barrefree_analyzer.urlimport import YtDlpSource
+
+            cookies = self.settings.url_import_cookies
+            self._video_source = lambda: YtDlpSource(cookies=cookies)
+        self.store.set_stage(job.id, "downloading", 0.01)
+        self._video_source().download(
+            link.id,
+            directory,
+            max_bytes=self.settings.max_upload_mb * 2**20,
+            max_sec=float(self.settings.max_duration_sec),
+        )
+
     def process(self, job: Job) -> None:
         directory = self.settings.jobs_path / job.id
+        if job.source.get("kind") == "url" and not any(directory.glob("upload.*")):
+            self.download(job, directory)
         uploads = sorted(directory.glob("upload.*"))
         if not uploads:
             raise UserFacingError("The uploaded file is missing. Please upload it again.")

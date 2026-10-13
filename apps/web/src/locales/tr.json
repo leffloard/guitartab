@@ -164,7 +164,8 @@
       "key": "Ton bulunuyor",
       "notes": "Notalar çıkarılıyor",
       "done": "Bitti",
-      "failed": "Başarısız"
+      "failed": "Başarısız",
+      "downloading": "Ses indiriliyor"
     },
     "details": "Ayrıntılar",
     "saveFailed": "Analiz bitti ama şarkı bu cihaza kaydedilemedi.",
@@ -242,5 +243,22 @@
     "delete": "{{title}} şarkısını sil",
     "deleteShort": "Sil",
     "unavailable": "Bu tarayıcı uygulamanın şarkı saklamasına izin vermiyor (site verileri engellenmiş ya da gizli pencerede olabilirsin). Kütüphane için bu sitenin verilerine izin ver."
+  },
+  "link": {
+    "title": "Bağlantıdan şarkı analiz et",
+    "notice": "Bir Spotify şarkı ya da YouTube video bağlantısı yapıştır. Spotify yalnızca şarkı adını ve sanatçıyı verir; ses, seçeceğin YouTube videosundan alınır. YouTube’dan indirme, hizmet koşullarına aykırı olabilir: bunu yalnızca kullanma hakkın olan şarkılar için ve kendi sorumluluğunda kullan.",
+    "label": "Bağlantı",
+    "placeholder": "https://open.spotify.com/track/… ya da https://youtu.be/…",
+    "find": "Bul",
+    "searched": "“{{query}}” için bulunan videolar: doğru olanı seç",
+    "confirm": "Doğru video bu mu?",
+    "open": "aç",
+    "analyze": "Bu videoyu analiz et",
+    "limits": "En fazla {{minutes}} dakikalık şarkılar.",
+    "error": {
+      "unsupported": "Bu bir Spotify şarkı ya da YouTube video bağlantısı değil.",
+      "failed": "Bağlantıya şu an bakılamadı. Biraz sonra tekrar dene.",
+      "none": "Bu şarkı için video bulunamadı."
+    }
   }
 }
