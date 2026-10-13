@@ -66,7 +66,8 @@ export function symbolKey(result: TransformResult, written: Chord): string {
 }
 
 /** Semitones from shape space to sounding pitch: capo plus the tuning's shift. */
-function soundingShift(result: TransformResult): number {
+/** Semitones from the shapes to the sounding chords: the capo (plus any tuning shift). */
+export function soundingShift(result: TransformResult): number {
   return (result.option?.capo ?? 0) + (uniformShift(result.tuning) ?? 0)
 }
 

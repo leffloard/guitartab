@@ -21,11 +21,15 @@ who cannot play barre chords.
 ## Architecture (details in docs/architecture.md)
 
 - `apps/web`: React 19 + Vite 8 SPA (PWA, i18n `tr`/`en`). All music theory runs client-side.
-  `src/App.tsx` holds the state (text, mode, λ stop, capo pick, transpose, display) and derives
-  everything with `useMemo`; `src/lib/arrangement.ts` applies the user's preferred voicings and
-  names chords; `src/lib/diagram.ts` converts voicings to svguitar (string 1 = high E).
+  `src/App.tsx` is the shell and route switch (`lib/router.ts`: History API +
+  `useSyncExternalStore`); pages live in `src/pages/` (Home = upload + `TextMode`, Job = SSE
+  progress, Song = player + chart, Library). `hooks/useArrangement.ts` wires the transform
+  engine to the controls for both text mode and songs; `lib/arrangement.ts` applies preferred
+  voicings and names chords; `lib/diagram.ts` converts voicings to svguitar (string 1 = high
+  E); `lib/library.ts` is the IndexedDB song store (`idb`); `lib/api.ts` the analyzer client.
 - `packages/theory`: pure, deterministic TypeScript transform engine (chord sheets, parse, transpose, capo
-  search, voicing selection, difficulty modes). No framework or I/O dependencies. Coverage ≥ 90%.
+  search, voicing selection, difficulty modes, `timeline.ts`: timed chords → bars, sync lookups,
+  text/ChordPro charts). No framework or I/O dependencies. Coverage ≥ 90%.
   Algorithms, formulas and the worked F example: docs/algorithms/transform-engine.md.
 - `packages/contracts`: TS types **generated** from the analyzer's JSON Schema. Never edit
   `*.gen.ts` or `schema/*.json` by hand.
@@ -120,6 +124,15 @@ docker compose --profile tunnel up -d   # + Cloudflare Tunnel (CLOUDFLARE_TUNNEL
 - **PWA**: `registerType: 'prompt'` (never reload under a player); the chord library is inside
   the precached JS bundle, so text mode works offline. Vitest aliases
   `virtual:pwa-register/react` to `src/test/pwa-register-stub.ts`.
+- **Player.** wavesurfer.js v8 on a detached `<audio>` (`media` option, `preservesPitch`), so
+  tests mock `components/Player`; real playback is checked in Chromium with Playwright, which
+  has no AAC decoder (one reason the playback copy is MP3). Handlers that wavesurfer keeps for
+  the instance's lifetime go through `useEffectEvent`; never assign refs during render.
+- **Song library** (`lib/library.ts`, IndexedDB `barrefree` v1: `songs` + `audio` Blobs). Bump
+  the version and migrate in `upgrade` when the record shape changes. `saveSong` only adds
+  (a saved song may carry the user's fixes). Chord fixes are canonical Harte at the recording's
+  pitch, typed and shown in the chart's frame (`lib/edits.ts`, `useArrangement().frame`).
+  Tests use `fake-indexeddb/auto` (set up in `src/test/setup.ts`).
 - **svguitar** needs SVG layout APIs that jsdom lacks; `ChordDiagram` swallows draw errors so
   component tests run, and real rendering is checked in Chromium with Playwright.
 - **Python:** strict mypy, ruff (incl. bandit `S` rules), pytest. The JSON Schema drift test runs
@@ -151,8 +164,8 @@ docker compose --profile tunnel up -d   # + Cloudflare Tunnel (CLOUDFLARE_TUNNEL
 | M1  | `packages/theory` + `data/voicings`: parser, transpose, voicings, scoring, capo search, 4 modes | ✅ done |
 | M2  | Web: text mode end to end, diagrams, mode/λ/capo UI, i18n, PWA                                  | ✅ done |
 | M3  | Analyzer: upload → decode → beats → key → Chordino; job queue + SSE                             | ✅ done |
-| M4  | Synced player, speed/A-B loop, confidence marks, manual edits, IndexedDB library                | next    |
-| M5  | BTC (+ lv-chordia) recognizers, Demucs, evaluation report                                       |         |
+| M4  | Synced player, speed/A-B loop, confidence marks, manual edits, IndexedDB library                | ✅ done |
+| M5  | BTC (+ lv-chordia) recognizers, Demucs, evaluation report                                       | next    |
 | M6  | URL import (YouTube + Spotify metadata → search → confirm), feature flag                        |         |
 | M7  | Tab mode (basic-pitch ONNX + tab assignment + alphaTab)                                         |         |
 | M8  | Docker deploy guide (Windows Server/WSL2), Cloudflare Tunnel, benchmarks                        |         |

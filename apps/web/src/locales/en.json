@@ -101,7 +101,8 @@
   "actions": {
     "copyText": "Copy text",
     "copyChordPro": "Copy ChordPro",
-    "copied": "Copied"
+    "copied": "Copied",
+    "print": "Print"
   },
   "export": {
     "capoHeader": "Capo: {{capo}}"
@@ -111,5 +112,129 @@
     "updateAvailable": "A new version is available.",
     "reload": "Reload",
     "dismiss": "Close"
+  },
+  "nav": {
+    "label": "Main",
+    "home": "Home",
+    "library": "Library",
+    "notFound": "This page does not exist."
+  },
+  "upload": {
+    "title": "Analyze a recording",
+    "choose": "Choose an audio file",
+    "hint": "MP3, WAV, FLAC, Ogg or M4A, up to {{mb}} MB. You can also drop a file here.",
+    "recognizer": "Chord recognizer",
+    "recognizerDefault": "Default",
+    "start": "Find the chords",
+    "sending": "Uploading… {{percent}}%",
+    "unavailable": "Audio analysis needs the BarreFree server, which cannot be reached right now. Pasting chords still works.",
+    "error": {
+      "tooLarge": "The file is larger than {{mb}} MB.",
+      "tooLong": "The file or the song is too long for this server.",
+      "notAudio": "This does not look like an audio file.",
+      "tooShort": "The recording is too short to analyze (under a second).",
+      "rate": "Too many uploads. Wait a minute and try again.",
+      "busy": "The server is busy. Try again in a few minutes.",
+      "offline": "The server cannot be reached.",
+      "generic": "The upload failed. Please try again."
+    },
+    "cancel": "Cancel"
+  },
+  "job": {
+    "title": "Analyzing",
+    "progress": "Analysis progress",
+    "queued": "Waiting for a free slot…",
+    "working": "Listening to the song. This takes about a minute.",
+    "saving": "Saving the song to your library…",
+    "failed": "The analysis failed.",
+    "expired": "This analysis is no longer on the server. Upload the song again.",
+    "again": "Analyze another song",
+    "stage": {
+      "queued": "Waiting",
+      "decoding": "Reading the audio",
+      "separating": "Separating instruments",
+      "beats": "Finding the beat",
+      "chords": "Recognizing chords",
+      "key": "Finding the key",
+      "notes": "Transcribing notes",
+      "done": "Done",
+      "failed": "Failed"
+    },
+    "details": "Details",
+    "saveFailed": "The analysis is done, but the song could not be saved on this device.",
+    "storageFull": "This browser's storage is full. Delete songs you no longer need from the library, then try again.",
+    "retry": "Try again",
+    "reconnecting": "The connection dropped; reconnecting…"
+  },
+  "song": {
+    "loading": "Loading the song…",
+    "missing": "This song is not in your library on this device.",
+    "noAudio": "The audio of this song is missing.",
+    "tempo": "{{bpm}} BPM",
+    "meter": "{{meter}} time",
+    "strum": "Strumming suggestion: {{pattern}}",
+    "strumHint": "D = down, U = up, - = skip the stroke. A starting point only: listen to the song for its rhythm."
+  },
+  "player": {
+    "label": "Player",
+    "play": "Play",
+    "pause": "Pause",
+    "back": "Back {{sec}} seconds",
+    "forward": "Forward {{sec}} seconds",
+    "time": "{{time}} / {{duration}}",
+    "speed": "Speed",
+    "rate": "{{percent}}%",
+    "loop": "A-B loop",
+    "setA": "Set A",
+    "setB": "Set B",
+    "clearLoop": "Clear loop",
+    "looping": "Looping {{a}}–{{b}}",
+    "loopTooShort": "Move at least half a second away from A, then set B."
+  },
+  "strip": {
+    "label": "Current chord",
+    "now": "Now",
+    "next": "Next",
+    "none": "–",
+    "inBeats_one": "in {{count}} beat",
+    "inBeats_other": "in {{count}} beats",
+    "inSeconds": "in {{seconds}} s"
+  },
+  "chart": {
+    "title": "Chords",
+    "label": "Chord chart, one column per beat",
+    "edit": "Fix chords",
+    "doneEditing": "Done",
+    "editHint": "Tap a chord to correct it. Your fixes are saved on this device.",
+    "uncertainChord": "{{chord}} (uncertain, check by ear)",
+    "uncertainCount_one": "{{count}} chord is uncertain (marked with a dotted outline). Listen and fix it if needed.",
+    "uncertainCount_other": "{{count}} chords are uncertain (marked with a dotted outline). Listen and fix them if needed.",
+    "rest": "No chord (N.C.)"
+  },
+  "edit": {
+    "title": "Fix this chord",
+    "detected": "Heard as: {{chord}}",
+    "label": "Chord",
+    "placeholder": "e.g. Am7, F/C, N for no chord",
+    "invalid": "This is not a chord name the app understands.",
+    "save": "Save",
+    "reset": "Use what was heard",
+    "cancel": "Cancel",
+    "frame": "Type it the way this chart writes chords (with the capo and transposition shown)."
+  },
+  "library": {
+    "title": "Library",
+    "hint": "Songs you analyzed, kept in this browser (also offline). Nothing is stored on the server.",
+    "empty": "No songs yet.",
+    "analyze": "Analyze a recording",
+    "key": "{{tonic}} {{mode}}",
+    "mode": {
+      "major": "major",
+      "minor": "minor"
+    },
+    "confirmDelete": "Delete “{{title}}” from this device?",
+    "delete": "Delete {{title}}",
+    "deleteShort": "Delete",
+    "unavailable": "This browser does not let the app store songs (site data may be blocked or the window may be private). Allow site data for this site to keep a library."
   }
 }

@@ -8,8 +8,9 @@ draws the finger diagrams and keeps the chords in sync with the music while you 
 
 > **Status:** early development. Text mode works end to end: paste a chord sheet (chords over
 > lyrics or ChordPro) and get a barre-free version with capo, diagrams and alternatives, in
-> Turkish or English, offline too. The audio analyzer (upload → beats, key, timed chords via
-> Chordino) runs as an API with a job queue; the synced player in the web app comes next (M4).
+> Turkish or English, offline too. Upload a recording and the analyzer finds its beats, key and
+> chords; the song page plays it with the barre-free chords in sync, slower without changing
+> the pitch, with an A-B loop, chord fixes and a library kept in your browser.
 
 ## Repository layout
 

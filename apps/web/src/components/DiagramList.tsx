@@ -16,20 +16,29 @@ interface Props {
   names: NameOptions
   /** Symbol key of the chord selected in the sheet. */
   selected: string | null
+  /** Scroll the selected card into view (off while a song plays, so the page stays put). */
+  scrollToSelected?: boolean
   onPick: (choice: EffectiveChoice, voicingId: string | null) => void
 }
 
 const ARROWS = { previous: '‹', next: '›' } as const
 
 /** One card per distinct chord: diagram, name, and arrows to browse alternative shapes. */
-export function DiagramList({ choices, result, names, selected, onPick }: Props) {
+export function DiagramList({
+  choices,
+  result,
+  names,
+  selected,
+  scrollToSelected = true,
+  onPick,
+}: Props) {
   const { t } = useTranslation()
   const list = useRef<HTMLUListElement>(null)
   useEffect(() => {
-    if (selected === null) return
+    if (selected === null || !scrollToSelected) return
     const card = list.current?.querySelector<HTMLElement>('.is-selected')
     card?.scrollIntoView?.({ block: 'nearest', inline: 'center', behavior: 'smooth' })
-  }, [selected])
+  }, [selected, scrollToSelected])
   return (
     <section className="diagrams" aria-labelledby="diagrams-title">
       <h2 id="diagrams-title">{t('diagrams.title')}</h2>

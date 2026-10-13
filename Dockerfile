@@ -17,11 +17,13 @@ WORKDIR /repo
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
 COPY apps/web/package.json apps/web/
 COPY packages/theory/package.json packages/theory/
+COPY packages/contracts/package.json packages/contracts/
 COPY data/voicings/package.json data/voicings/
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile --filter "@barrefree/web..."
 COPY apps/web apps/web
 COPY packages/theory packages/theory
+COPY packages/contracts packages/contracts
 COPY data/voicings data/voicings
 RUN pnpm --filter @barrefree/web build
 

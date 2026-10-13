@@ -67,9 +67,10 @@ All of these are compatible with the analyzer's GPL-3.0-or-later.
 | Component                        | License      | Notes                                                                                                                    |
 | -------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------ |
 | svguitar                         | MIT          | chord diagrams (M2)                                                                                                      |
-| wavesurfer.js v8                 | BSD-3-Clause | player and waveform (M4)                                                                                                 |
+| wavesurfer.js v8                 | BSD-3-Clause | **in use**: player and waveform (M4)                                                                                     |
 | alphaTab (`@coderline/alphatab`) | MPL-2.0      | tab rendering (M7); file-level copyleft, OK to bundle                                                                    |
-| idb                              | ISC          | IndexedDB library (M4)                                                                                                   |
+| idb                              | ISC          | **in use**: IndexedDB wrapper for the song library (M4)                                                                  |
+| fake-indexeddb                   | Apache-2.0   | **in use**, tests only (IndexedDB in jsdom); never bundled                                                               |
 | tombatossals/chords-db data      | MIT          | **in use**: `data/voicings/standard/chords-db.json` at a pinned commit; notice in `data/voicings/LICENSES/chords-db.txt` |
 
 ### Planned: analyzer

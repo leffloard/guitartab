@@ -101,7 +101,8 @@
   "actions": {
     "copyText": "Metni kopyala",
     "copyChordPro": "ChordPro kopyala",
-    "copied": "Kopyalandı"
+    "copied": "Kopyalandı",
+    "print": "Yazdır"
   },
   "export": {
     "capoHeader": "Kapo: {{capo}}"
@@ -111,5 +112,129 @@
     "updateAvailable": "Yeni bir sürüm hazır.",
     "reload": "Yenile",
     "dismiss": "Kapat"
+  },
+  "nav": {
+    "label": "Ana menü",
+    "home": "Ana sayfa",
+    "library": "Kütüphane",
+    "notFound": "Böyle bir sayfa yok."
+  },
+  "upload": {
+    "title": "Bir kaydı analiz et",
+    "choose": "Ses dosyası seç",
+    "hint": "MP3, WAV, FLAC, Ogg ya da M4A, en fazla {{mb}} MB. Dosyayı buraya da sürükleyebilirsin.",
+    "recognizer": "Akor tanıyıcı",
+    "recognizerDefault": "Varsayılan",
+    "start": "Akorları bul",
+    "sending": "Yükleniyor… %{{percent}}",
+    "unavailable": "Ses analizi için BarreFree sunucusu gerekiyor ve şu an ona ulaşılamıyor. Akor yapıştırma yine çalışır.",
+    "error": {
+      "tooLarge": "Dosya {{mb}} MB’tan büyük.",
+      "tooLong": "Dosya ya da şarkı bu sunucu için fazla uzun.",
+      "notAudio": "Bu bir ses dosyasına benzemiyor.",
+      "tooShort": "Kayıt analiz için fazla kısa (bir saniyeden az).",
+      "rate": "Çok fazla yükleme yapıldı. Bir dakika bekleyip tekrar dene.",
+      "busy": "Sunucu meşgul. Birkaç dakika sonra tekrar dene.",
+      "offline": "Sunucuya ulaşılamıyor.",
+      "generic": "Yükleme başarısız oldu. Lütfen tekrar dene."
+    },
+    "cancel": "İptal"
+  },
+  "job": {
+    "title": "Analiz ediliyor",
+    "progress": "Analiz ilerlemesi",
+    "queued": "Boş bir sıra bekleniyor…",
+    "working": "Şarkı dinleniyor. Bu yaklaşık bir dakika sürer.",
+    "saving": "Şarkı kütüphanene kaydediliyor…",
+    "failed": "Analiz başarısız oldu.",
+    "expired": "Bu analiz artık sunucuda yok. Şarkıyı tekrar yükle.",
+    "again": "Başka bir şarkı analiz et",
+    "stage": {
+      "queued": "Bekliyor",
+      "decoding": "Ses okunuyor",
+      "separating": "Enstrümanlar ayrılıyor",
+      "beats": "Vuruşlar bulunuyor",
+      "chords": "Akorlar tanınıyor",
+      "key": "Ton bulunuyor",
+      "notes": "Notalar çıkarılıyor",
+      "done": "Bitti",
+      "failed": "Başarısız"
+    },
+    "details": "Ayrıntılar",
+    "saveFailed": "Analiz bitti ama şarkı bu cihaza kaydedilemedi.",
+    "storageFull": "Tarayıcının depolama alanı dolu. Kütüphaneden artık gerekmeyen şarkıları silip tekrar dene.",
+    "retry": "Tekrar dene",
+    "reconnecting": "Bağlantı koptu, yeniden bağlanılıyor…"
+  },
+  "song": {
+    "loading": "Şarkı yükleniyor…",
+    "missing": "Bu şarkı bu cihazdaki kütüphanende yok.",
+    "noAudio": "Bu şarkının sesi eksik.",
+    "tempo": "{{bpm}} BPM",
+    "meter": "{{meter}} ölçü",
+    "strum": "Tutuş önerisi: {{pattern}}",
+    "strumHint": "D = aşağı, U = yukarı, - = vuruşu atla. Sadece bir başlangıç noktası: ritim için şarkıyı dinle."
+  },
+  "player": {
+    "label": "Oynatıcı",
+    "play": "Çal",
+    "pause": "Duraklat",
+    "back": "{{sec}} saniye geri",
+    "forward": "{{sec}} saniye ileri",
+    "time": "{{time}} / {{duration}}",
+    "speed": "Hız",
+    "rate": "%{{percent}}",
+    "loop": "A-B döngüsü",
+    "setA": "A noktası",
+    "setB": "B noktası",
+    "clearLoop": "Döngüyü kaldır",
+    "looping": "{{a}}–{{b}} arası tekrarlanıyor",
+    "loopTooShort": "A noktasından en az yarım saniye uzaklaşıp B’yi işaretle."
+  },
+  "strip": {
+    "label": "Şu anki akor",
+    "now": "Şimdi",
+    "next": "Sıradaki",
+    "none": "–",
+    "inBeats_one": "{{count}} vuruş sonra",
+    "inBeats_other": "{{count}} vuruş sonra",
+    "inSeconds": "{{seconds}} sn sonra"
+  },
+  "chart": {
+    "title": "Akorlar",
+    "label": "Akor şeması, her vuruşa bir sütun",
+    "edit": "Akorları düzelt",
+    "doneEditing": "Bitti",
+    "editHint": "Düzeltmek için bir akora dokun. Düzeltmelerin bu cihazda saklanır.",
+    "uncertainChord": "{{chord}} (emin değil, kulakla kontrol et)",
+    "uncertainCount_one": "{{count}} akordan emin değiliz (noktalı çerçeveli). Dinleyip gerekirse düzelt.",
+    "uncertainCount_other": "{{count}} akordan emin değiliz (noktalı çerçeveli). Dinleyip gerekirse düzelt.",
+    "rest": "Akor yok (N.C.)"
+  },
+  "edit": {
+    "title": "Bu akoru düzelt",
+    "detected": "Duyulan: {{chord}}",
+    "label": "Akor",
+    "placeholder": "ör. Am7, F/C; akor yoksa N",
+    "invalid": "Uygulamanın tanıdığı bir akor adı değil.",
+    "save": "Kaydet",
+    "reset": "Duyulanı kullan",
+    "cancel": "Vazgeç",
+    "frame": "Akoru bu tablonun yazdığı gibi yaz (gösterilen kapo ve transpozeyle)."
+  },
+  "library": {
+    "title": "Kütüphane",
+    "hint": "Analiz ettiğin şarkılar bu tarayıcıda saklanır (internetsiz de). Sunucuda hiçbir şey tutulmaz.",
+    "empty": "Henüz şarkı yok.",
+    "analyze": "Bir kaydı analiz et",
+    "key": "{{tonic}} {{mode}}",
+    "mode": {
+      "major": "majör",
+      "minor": "minör"
+    },
+    "confirmDelete": "“{{title}}” bu cihazdan silinsin mi?",
+    "delete": "{{title}} şarkısını sil",
+    "deleteShort": "Sil",
+    "unavailable": "Bu tarayıcı uygulamanın şarkı saklamasına izin vermiyor (site verileri engellenmiş ya da gizli pencerede olabilirsin). Kütüphane için bu sitenin verilerine izin ver."
   }
 }

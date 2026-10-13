@@ -40,4 +40,7 @@ export default defineConfig({
     // During development the FastAPI analyzer runs on :8000.
     proxy: { '/api': 'http://localhost:8000' },
   },
+  preview: {
+    proxy: { '/api': 'http://localhost:8000' },
+  },
 })

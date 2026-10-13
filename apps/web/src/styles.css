@@ -549,6 +549,379 @@ select {
   margin: 0;
 }
 
+/* Navigation */
+.nav {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.nav > a {
+  display: flex;
+  align-items: center;
+  min-height: var(--touch);
+  padding: 0 12px;
+  border-radius: 10px;
+  color: var(--fg);
+}
+
+.nav > a[aria-current='page'] {
+  background: var(--surface-2);
+}
+
+.home-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Buttons and fields shared by the new pages */
+button.primary,
+.button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+  font-weight: 600;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch);
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+  cursor: pointer;
+}
+
+input[type='file']:focus-visible + .button {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--touch);
+}
+
+.field input {
+  min-height: var(--touch);
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+/* Upload */
+.upload {
+  display: grid;
+  gap: 10px;
+}
+
+.dropzone {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+}
+
+.dropzone.is-dragging {
+  border-color: var(--accent);
+}
+
+/* Job progress */
+.job {
+  display: grid;
+  gap: 12px;
+}
+
+.job progress {
+  width: 100%;
+  height: 12px;
+  accent-color: var(--accent);
+}
+
+.stages {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 1.4rem;
+  color: var(--muted);
+}
+
+.stages .is-done {
+  color: var(--fg);
+}
+
+.stages .is-done::marker {
+  content: '✓  ';
+}
+
+.stages .is-current {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* Song */
+.song-head h2 {
+  font-size: 1.3rem;
+}
+
+.song-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 6px 0 0;
+}
+
+.player {
+  display: grid;
+  gap: 10px;
+}
+
+.waveform {
+  min-height: 64px;
+}
+
+.player-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.player .play {
+  min-width: 64px;
+  font-size: 1.2rem;
+}
+
+.clock {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.loop {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.loop button[aria-pressed='true'] {
+  border-color: var(--sub);
+  box-shadow: inset 0 0 0 1px var(--sub);
+}
+
+/* The chord to play now, readable from a music stand */
+.layout-song {
+  --strip-clearance: 9rem;
+}
+
+.strip {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  align-items: end;
+  gap: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.strip-now,
+.strip-next {
+  display: grid;
+  gap: 2px;
+}
+
+.strip-caption {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.strip-chord {
+  font-size: clamp(2.6rem, 14vw, 4.5rem);
+  line-height: 1;
+  color: var(--accent);
+}
+
+.strip-chord.is-uncertain {
+  text-decoration: underline dotted;
+  text-underline-offset: 6px;
+}
+
+.strip-chord-small {
+  font-size: clamp(1.4rem, 7vw, 2.2rem);
+  font-weight: 700;
+}
+
+.strip-count {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Chord chart: one row of beats per bar */
+.chart {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bar {
+  display: grid;
+  align-items: center;
+  /* Keep the current bar and focused chords clear of the sticky chord strip. */
+  scroll-margin-top: var(--strip-clearance);
+  min-height: var(--touch);
+  padding: 4px 6px;
+  border-left: 2px solid var(--border);
+  background: var(--bg);
+  border-radius: 4px;
+}
+
+.bar.is-current {
+  background: var(--surface-2);
+  border-left-color: var(--accent);
+}
+
+.held {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.chart-chord {
+  scroll-margin-top: var(--strip-clearance);
+  min-height: 36px;
+  padding: 0 4px;
+  border: 1px solid transparent;
+  background: none;
+  font-weight: 700;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chart-chord.is-current {
+  color: var(--accent-fg);
+  background: var(--accent);
+}
+
+/* Not by colour alone: substitutes are also underlined. */
+.chart-chord.is-substituted {
+  color: var(--sub);
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.chart-chord.is-rest {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.chart-chord.is-uncertain {
+  border: 1px dashed var(--danger);
+}
+
+.chart-chord.is-edited {
+  font-style: italic;
+}
+
+.chart.is-editing .chart-chord {
+  border-color: var(--border);
+}
+
+/* Dialog */
+.dialog {
+  width: min(420px, calc(100% - 32px));
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--fg);
+}
+
+.dialog::backdrop {
+  background: rgb(0 0 0 / 60%);
+}
+
+.dialog-body {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+}
+
+.dialog form {
+  display: grid;
+  gap: 10px;
+}
+
+/* Library */
+.song-list {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.song-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.song-link {
+  display: grid;
+  flex: 1;
+  min-height: var(--touch);
+  align-content: center;
+  color: inherit;
+  text-decoration: none;
+}
+
+.song-link small {
+  color: var(--muted);
+}
+
+@media (min-width: 900px) {
+  .layout-home .upload {
+    grid-column: 1;
+  }
+
+  .layout-song {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  }
+
+  .layout-song .song-head,
+  .layout-song .player,
+  .layout-song .strip,
+  .layout-song .diagrams {
+    grid-column: 1 / -1;
+  }
+
+  .layout-song .controls {
+    grid-column: 1;
+  }
+
+  .layout-song .result {
+    grid-column: 2;
+    grid-row: auto;
+  }
+}
+
 @media (min-width: 900px) {
   .layout {
     grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
@@ -578,6 +951,12 @@ select {
 /* Windows High Contrast and other forced-color themes: svguitar draws with fixed colors, and
    selection is shown with backgrounds and shadows, which forced colors drop. */
 @media (forced-colors: active) {
+  .bar.is-current,
+  .chart-chord.is-current {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+
   .diagram svg [stroke]:not([stroke='none'], [stroke='transparent']) {
     stroke: CanvasText;
   }
@@ -616,6 +995,10 @@ select {
   }
 
   .app-header .settings,
+  .nav,
+  .upload,
+  .player,
+  .strip,
   .input,
   .controls,
   .actions,
@@ -632,8 +1015,21 @@ select {
 
   .line-chords,
   .chord.is-substituted,
+  .chart-chord,
+  .chart-chord.is-substituted,
+  .chart-chord.is-rest,
+  .held,
   .capo-note {
     color: #000;
+  }
+
+  .bar,
+  .chart-chord.is-current {
+    background: none;
+  }
+
+  .bar {
+    border-left-color: #000;
   }
 
   /* Diagrams are drawn light-on-dark; invert them for paper. */

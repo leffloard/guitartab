@@ -101,7 +101,46 @@ inputs carry the `file:` prefix, and each call has a timeout.
 
 **Privacy.** No accounts: an unguessable job id is the only key. The original upload is deleted
 as soon as it is decoded; the playback copy and the result are deleted after the TTL, and a
-`DELETE` removes them at once. The web app keeps its own copy in the browser (M4).
+`DELETE` removes them at once. The web app keeps its own copy in the browser (see 4b).
+
+### 4b. Web app: routes, library and the synced player (M4)
+
+```
+/            upload card (+ recognizer) and text mode
+/jobs/:id    live stages over SSE ─▶ on "done": GET result + GET audio ─▶ IndexedDB ─▶ /songs/:id
+/songs/:id   player, chord strip, controls, bar chart, diagrams, exports (text, ChordPro, print)
+/library     songs saved in this browser; delete
+```
+
+- **Router.** Four routes do not justify a router library: `lib/router.ts` wraps the History API
+  in `useSyncExternalStore`. FastAPI already answers every non-`/api/` path with `index.html`.
+- **Library (IndexedDB via `idb`).** A song is the analysis, the playback MP3 as a Blob, the
+  user's chord fixes (`edits`, index → Harte label) and the controls' state (`view`). The server
+  deletes everything after its TTL, so the browser copy is the only one that lasts; the app asks
+  for persistent storage (`navigator.storage.persist`). No account, nothing leaves the device.
+  Together with the precached bundle, a saved song opens and plays offline.
+- **Player (wavesurfer.js v8).** wavesurfer drives a detached `<audio>` element (`media`), so
+  speed changes use the browser's own time stretching with `preservesPitch` (0.5–1×): the
+  chords stay in tune with a guitar. An A-B loop seeks back on `timeupdate`; the regions
+  plugin only draws it. The MP3 is constant bitrate so seeking is exact.
+- **Sync without re-rendering at frame rate.** `timeupdate` fires about every frame while
+  playing. The song page maps the time to a position (current chord, next change, beats to
+  go, bar; binary search in `packages/theory/src/timeline.ts`) and only sets state when that
+  position changes, about once per beat. The countdown counts beats on the beat grid and falls
+  back to seconds without one.
+- **Bars.** `barsFromBeats` builds bars from the downbeats (or every N beats; music before the
+  first downbeat is a pickup bar); `layoutBars` puts each chord at the beat it starts on.
+  The same layout feeds the chart, the plain-text export and ChordPro (`{tempo}`, `{time}`).
+- **Confidence and fixes.** Chords under 0.5 confidence get a dashed outline and a count. A fix
+  is typed the way the chart writes chords (capo shapes or transposed names) and stored as
+  canonical Harte at the recording's pitch (`lib/edits.ts`), so it keeps meaning the same chord
+  when the capo or transposition changes. Breaks show as N.C. cells, so a missed chord can be
+  added and a fix to "no chord" undone. Edits are stored per segment, the analysis itself stays
+  untouched, and re-opening a job page never replaces a saved song (`saveSong` only adds).
+- **Leaving a page.** The player stops its audio element itself (wavesurfer leaves media it did
+  not create alone), an upload in progress is aborted, and the controls' state is flushed.
+- **One arrangement hook.** `useArrangement` wires the transform engine to the controls for
+  both text mode and the song page, so capo, mode, λ and voicing preferences behave the same.
 
 ### 5. Python 3.12 (not 3.11)
 
