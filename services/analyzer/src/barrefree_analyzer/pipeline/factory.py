@@ -6,7 +6,7 @@ from barrefree_analyzer.config import Settings
 from barrefree_analyzer.models import model_path
 from barrefree_analyzer.pipeline.beats import BeatThisTracker, LibrosaBeatTracker
 from barrefree_analyzer.pipeline.chordino import ChordinoRecognizer
-from barrefree_analyzer.pipeline.interfaces import BeatTracker, ChordRecognizer
+from barrefree_analyzer.pipeline.interfaces import BeatTracker, ChordRecognizer, Separator
 from barrefree_analyzer.pipeline.key import CqtChroma, KrumhanslKeyEstimator
 from barrefree_analyzer.pipeline.run import Pipeline
 
@@ -25,14 +25,30 @@ def build_beat_tracker(settings: Settings) -> BeatTracker:
 def build_recognizer(name: str, settings: Settings) -> ChordRecognizer:
     if name == "chordino":
         return ChordinoRecognizer(settings.vamp_path)
+    if name == "btc":
+        from barrefree_analyzer.pipeline.btc import BTCRecognizer
+
+        return BTCRecognizer(model_path(settings, "btc"))
     raise ValueError(f"unknown chord recognizer '{name}'")
 
 
-def build_pipeline(settings: Settings, *, separation: bool = False) -> Pipeline:
-    del separation  # source separation arrives with Demucs (M5)
+def build_separator(settings: Settings) -> Separator:
+    from barrefree_analyzer.pipeline.separation import CachedSeparator, DemucsSeparator
+
+    separator = DemucsSeparator(model_path(settings, "htdemucs"))
+    return CachedSeparator(
+        separator, settings.cache_path / "stems", ttl_sec=settings.temp_file_ttl_sec
+    )
+
+
+def build_pipeline(settings: Settings, *, separation: bool | None = None) -> Pipeline:
+    """Loads every enabled model; ``separation`` overrides ``settings.separation``."""
     return Pipeline(
         beat_tracker=build_beat_tracker(settings),
         chroma=CqtChroma(),
         key_estimator=KrumhanslKeyEstimator(),
         recognizers={name: build_recognizer(name, settings) for name in settings.recognizers},
+        separator=build_separator(settings)
+        if (settings.separation if separation is None else separation)
+        else None,
     )

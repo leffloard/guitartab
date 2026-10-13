@@ -343,15 +343,20 @@ describe('fidelity details', () => {
   test.prop([
     fc.constantFrom('C', 'Am', 'G7', 'Fmaj7', 'Dsus4', 'E7#9', 'C/G'),
     fc.integer({ min: 0, max: 11 }),
-  ])('fidelity is in [0, 1] and realizes implies no clash', (name, n) => {
-    const target = transpose(chord(name), n)
-    for (const e of getDefaultLibrary().byPitchClass[target.root] ?? []) {
-      const f = fidelity(target, e.played)
-      expect(f.value).toBeGreaterThanOrEqual(0)
-      expect(f.value).toBeLessThanOrEqual(1)
-      if (realizes(target, e.played)) expect(f.clash).toBe(false)
-    }
-  })
+  ])(
+    'fidelity is in [0, 1] and realizes implies no clash',
+    (name, n) => {
+      const target = transpose(chord(name), n)
+      for (const e of getDefaultLibrary().byPitchClass[target.root] ?? []) {
+        const f = fidelity(target, e.played)
+        expect(f.value).toBeGreaterThanOrEqual(0)
+        expect(f.value).toBeLessThanOrEqual(1)
+        if (realizes(target, e.played)) expect(f.clash).toBe(false)
+      }
+      // 100 runs over every library shape on a root: seconds under coverage instrumentation.
+    },
+    30_000,
+  )
 })
 
 describe('fretboard generator', () => {

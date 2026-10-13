@@ -8,12 +8,14 @@ known exactly. A song has
   on every beat (guitar-like attacks give the beat tracker onsets);
 - a bass: the root (or the slash bass) in the second octave, on beats 1 and 3;
 - optional drums (kick, snare, hi-hat) and a vibrato "vocal" lead playing chord tones, which
-  make source separation (M5) meaningful.
+  make source separation meaningful. The "busy" variants (``BUSY``) turn both up and give the
+  lead a passing note on every off-beat, as a sung melody would: the hard case for chroma-based
+  recognizers, and the one separation is meant to help with.
 
 Partials fall off as 1/n, which is enough for chroma-based recognizers.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 import mir_eval
@@ -34,6 +36,10 @@ class SongSpec:
     drums: bool = False
     lead: bool = False
     seed: int = 0
+    drum_gain: float = 1.0
+    lead_gain: float = 1.0
+    #: The lead moves a whole tone up for the second half of each beat (usually off the chord).
+    passing: bool = False
 
 
 @dataclass(frozen=True)
@@ -97,6 +103,17 @@ def _add(buf: npt.NDArray[np.float64], at: float, sig: npt.NDArray[np.float64], 
         buf[i:j] += sig[: j - i]
 
 
+def _voice(midi: int, seconds: float, rate: int) -> npt.NDArray[np.float64]:
+    """A sung-like tone: three harmonics, 5.5 Hz vibrato, 40 ms attack."""
+    t = np.arange(int(seconds * rate)) / rate
+    vib = 0.004 * np.sin(2 * np.pi * 5.5 * t)
+    phase = 2 * np.pi * np.cumsum(midi_to_hz(midi) * (1 + vib)) / rate
+    voice = (np.sin(phase) + 0.3 * np.sin(2 * phase) + 0.15 * np.sin(3 * phase)) * np.minimum(
+        t / 0.04, 1.0
+    )
+    return np.asarray(voice, dtype=np.float64)
+
+
 def render(spec: SongSpec, rate: int = RATE) -> SyntheticSong:
     rng = np.random.default_rng(spec.seed)
     beat = 60.0 / spec.bpm
@@ -127,25 +144,28 @@ def render(spec: SongSpec, rate: int = RATE) -> SyntheticSong:
                 if k % 2 == 0:
                     t = np.arange(int(0.12 * rate)) / rate
                     kick = np.sin(2 * np.pi * (50 + 70 * np.exp(-t * 40)) * t) * np.exp(-t * 25)
-                    _add(buf, at, 0.6 * kick, rate)
+                    _add(buf, at, 0.6 * spec.drum_gain * kick, rate)
                 else:
-                    _add(buf, at, 0.25 * _noise(0.15, rate, rng, 30), rate)
+                    _add(buf, at, 0.25 * spec.drum_gain * _noise(0.15, rate, rng, 30), rate)
                 for half in (0.0, 0.5):
                     _add(
                         buf,
                         at + half * beat,
-                        0.06 * np.diff(_noise(0.04, rate, rng, 120), prepend=0),
+                        0.06 * spec.drum_gain * np.diff(_noise(0.04, rate, rng, 120), prepend=0),
                         rate,
                     )
             if spec.lead and pad:
                 note = pad[1 + (k % (len(pad) - 1))] + 12
-                t = np.arange(int(beat * 0.95 * rate)) / rate
-                vib = 0.004 * np.sin(2 * np.pi * 5.5 * t)
-                phase = 2 * np.pi * np.cumsum(midi_to_hz(note) * (1 + vib)) / rate
-                voice = (
-                    np.sin(phase) + 0.3 * np.sin(2 * phase) + 0.15 * np.sin(3 * phase)
-                ) * np.minimum(t / 0.04, 1.0)
-                _add(buf, at, 0.10 * voice, rate)
+                parts = [(0.0, note, 0.95)] if not spec.passing else [(0.0, note, 0.48)]
+                if spec.passing:
+                    parts.append((0.5, note + 2, 0.45))
+                for offset, midi, length in parts:
+                    _add(
+                        buf,
+                        at + offset * beat,
+                        0.10 * spec.lead_gain * _voice(midi, beat * length, rate),
+                        rate,
+                    )
     end = lead_in + bar * len(spec.progression)
     chords.append((end, total, "N"))
     # Stop the sound at the end of the last bar (50 ms fade), so the closing "N" is true silence.
@@ -220,6 +240,21 @@ SONGS: list[SongSpec] = [
         bpm=104,
         seed=10,
     ),
+]
+
+
+#: The same songs with loud drums and a loud lead that sings passing notes.
+BUSY: list[SongSpec] = [
+    replace(
+        spec,
+        name=f"{spec.name}-busy",
+        drums=True,
+        lead=True,
+        drum_gain=2.5,
+        lead_gain=4.0,
+        passing=True,
+    )
+    for spec in SONGS
 ]
 
 

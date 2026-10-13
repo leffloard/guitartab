@@ -40,8 +40,10 @@ who cannot play barre chords.
   only** (beats, key, Harte chord labels, notes). It must never implement capo, transposition or
   voicing logic: those belong in `packages/theory`. `api.py` (jobs API + SSE), `jobs.py` (queue),
   `worker.py`, `audio.py` (ffmpeg), `pipeline/` (one interface per step: beats, chords, key,
-  separation, notes; `postprocess.py` is recognizer-independent), `synth.py` (synthetic songs with
-  exact ground truth), `models.py` (weight URLs + SHA-256), `eval/evaluate.py` (mir_eval).
+  separation, notes; `postprocess.py` is recognizer-independent; `btc.py` is a typed port of the
+  BTC model; `separation.py` wraps Demucs), `synth.py` (synthetic songs with exact ground truth,
+  plus a "busy" variant), `models.py` (weight URLs + SHA-256), `eval/evaluate.py` (mir_eval;
+  `eval/report.md` is generated, its discussion is `eval/report-notes.md`).
 
 Decisions already made, with their rationale in docs/architecture.md and docs/licenses.md:
 
@@ -143,8 +145,11 @@ docker compose --profile tunnel up -d   # + Cloudflare Tunnel (CLOUDFLARE_TUNNEL
   setuptools; it needs g++. `VAMP_PATH` must be set before the first plugin call
   (`Settings.vamp_path`, `/opt/vamp` in Docker). Chordino emits major chords as a bare root
   (`C`, `C/3`); `chordino.to_harte` spells them `C:maj`.
-- **Model weights** are never committed or baked into images: `models.py` lists URL + SHA-256,
-  the worker downloads missing ones on start. Tests that need the plugin or weights skip, except
+- **Model weights** are never committed or baked into images: `models.py` lists URL + SHA-256
+  (pinned commits), the worker downloads missing ones on start. Load weights without pickle code
+  execution: safetensors (Demucs) or `torch.load(weights_only=True)` with an explicit
+  `safe_globals` allow-list (BTC). `uv.lock` resolves for Linux, Windows and Apple-silicon macOS
+  only (`[tool.uv] environments`): torch has no Intel-macOS wheels. Tests that need the plugin or weights skip, except
   under `BARREFREE_REQUIRE_MODELS=1` (set by `pnpm check`), where they fail.
 - **Analyzer tests use synthetic audio only** (`synth.py`, ffmpeg `lavfi` sine); the M3
   acceptance test runs the full pipeline on the synthetic songs (majmin ≥ 90 %).
@@ -165,7 +170,7 @@ docker compose --profile tunnel up -d   # + Cloudflare Tunnel (CLOUDFLARE_TUNNEL
 | M2  | Web: text mode end to end, diagrams, mode/λ/capo UI, i18n, PWA                                  | ✅ done |
 | M3  | Analyzer: upload → decode → beats → key → Chordino; job queue + SSE                             | ✅ done |
 | M4  | Synced player, speed/A-B loop, confidence marks, manual edits, IndexedDB library                | ✅ done |
-| M5  | BTC (+ lv-chordia) recognizers, Demucs, evaluation report                                       | next    |
-| M6  | URL import (YouTube + Spotify metadata → search → confirm), feature flag                        |         |
+| M5  | BTC (+ lv-chordia) recognizers, Demucs, evaluation report                                       | ✅ done |
+| M6  | URL import (YouTube + Spotify metadata → search → confirm), feature flag                        | next    |
 | M7  | Tab mode (basic-pitch ONNX + tab assignment + alphaTab)                                         |         |
 | M8  | Docker deploy guide (Windows Server/WSL2), Cloudflare Tunnel, benchmarks                        |         |

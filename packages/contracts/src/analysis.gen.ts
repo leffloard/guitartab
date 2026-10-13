@@ -96,7 +96,14 @@ export interface ApiError {
  */
 export interface Features {
   urlImport: boolean
+  /**
+   * Chord recognizers, the default first.
+   */
   recognizers: string[]
+  /**
+   * Whether jobs may ask for source separation.
+   */
+  separation: boolean
   maxUploadMb: number
   maxDurationSec: number
 }

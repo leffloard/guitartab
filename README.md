@@ -41,7 +41,7 @@ pnpm lint && pnpm typecheck && pnpm test
 cd services/analyzer
 uv sync
 scripts/build-vamp-plugins.sh             # Chordino (needs g++, make, libboost-dev)
-uv run barrefree-download-models          # beat tracker weights
+uv run barrefree-download-models          # beat tracker, BTC and Demucs weights (~180 MB)
 uv run uvicorn barrefree_analyzer.app:create_app --factory --reload   # API on :8000
 uv run barrefree-worker                   # analysis worker
 uv run pytest

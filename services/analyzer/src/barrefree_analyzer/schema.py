@@ -148,7 +148,8 @@ class Features(CamelModel):
     model_config = ConfigDict(title="Features")
 
     url_import: bool
-    recognizers: list[str]
+    recognizers: list[str] = Field(description="Chord recognizers, the default first.")
+    separation: bool = Field(description="Whether jobs may ask for source separation.")
     max_upload_mb: int
     max_duration_sec: int
 

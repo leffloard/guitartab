@@ -13,7 +13,21 @@ uv run python eval/evaluate.py --synthetic
 
 The songs come from [`synth.py`](../src/barrefree_analyzer/synth.py): ten progressions across
 keys, modes, sevenths, slash chords, 3/4 time and 72–132 BPM, some with drums and a vibrato
-"vocal" line. Being synthetic, their ground truth is exact; real music is harder.
+"vocal" line, plus a "busy" variant of each (`synthetic-busy`: loud drums and a loud lead that
+sings a passing note on every off-beat). Being synthetic, their ground truth is exact; real music
+is harder.
+
+## The committed report
+
+[`report.md`](report.md) compares the recognizers with and without source separation. Its
+discussion lives in [`report-notes.md`](report-notes.md); regenerate the report with
+
+```bash
+uv run python eval/evaluate.py --synthetic --recognizers chordino,btc --separate off,on \
+    --notes eval/report-notes.md --report eval/report.md
+```
+
+on an otherwise idle machine (the time column is wall-clock time).
 
 ## Your own recordings
 

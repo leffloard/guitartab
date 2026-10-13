@@ -8,6 +8,7 @@ license-files = ["LICENSE"]
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "beat-this>=1.1.0",
+    "demucs>=4.1.0",
     "fastapi>=0.135",
     "librosa>=0.11",
     "mir-eval>=0.8",
@@ -39,6 +40,15 @@ dev = [
 
 # torch must come from the CPU wheel index: from PyPI, Linux would also pull the CUDA libraries
 # (several GB).
+[tool.uv]
+# Platforms the lock file resolves for. Intel macOS is left out: current torch has no wheels for
+# it, and demucs pins numpy < 2 there, which conflicts with librosa 1.0.
+environments = [
+    "sys_platform == 'linux'",
+    "sys_platform == 'win32'",
+    "sys_platform == 'darwin' and platform_machine == 'arm64'",
+]
+
 [[tool.uv.index]]
 name = "pytorch-cpu"
 url = "https://download.pytorch.org/whl/cpu"

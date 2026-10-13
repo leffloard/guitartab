@@ -254,3 +254,17 @@ def test_acceptance_synthetic_majmin_at_least_90_percent(pipeline_settings: Sett
     majmin = pooled.score("majmin")
     assert majmin is not None
     assert majmin >= 0.90, f"majmin {majmin:.3f}"
+
+
+def test_full_pipeline_with_btc_after_separation(pipeline_settings: Settings) -> None:
+    pipeline = build_pipeline(pipeline_settings)
+    song = render(SONGS[8])  # drums and a lead
+    result = pipeline.run(song.audio, song.rate, JobOptions(recognizer="btc", separate=True))
+    assert result.meta.recognizer == "btc"
+    assert result.meta.separated is True
+    tally = compare(
+        to_labeled(song.chords), to_labeled((c.start, c.end, c.label) for c in result.chords)
+    )
+    majmin = tally.score("majmin")
+    assert majmin is not None
+    assert majmin > 0.9

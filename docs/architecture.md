@@ -66,8 +66,10 @@ needed, and a reconnecting browser simply gets the current state.
 ```
 upload ─▶ magic bytes + size cap (413 while streaming) ─▶ ffprobe duration (1 s … 15 min) ─▶ queue
 worker ─▶ ffmpeg: mono 22.05 kHz float32 (analysis) + mono 128 kbit/s CBR MP3 (player), upload deleted
+       ─▶ separation (opt-in) Demucs htdemucs: chords hear bass + other (no drums, no vocals)
        ─▶ beats + downbeats   beat_this (CPJKU, MIT weights, no DBN); librosa fallback
-       ─▶ chords              Chordino (NNLS chroma + HMM), Harte labels, block 8192 / step 1024
+       ─▶ chords              Chordino (default; NNLS chroma + HMM, block 8192 / step 1024) or
+                              BTC (bi-directional transformer, 170 classes), Harte labels
        ─▶ clean-up            snap changes to beats (≤ ½ beat, ≤ 0.3 s), drop sub-beat segments,
                               lead-in, tail and pauses ≥ 1 s → N, chroma-template confidence
        ─▶ key                 Krumhansl–Kessler on CQT chroma; relative major/minor decided by
@@ -75,8 +77,30 @@ worker ─▶ ffmpeg: mono 22.05 kHz float32 (analysis) + mono 128 kbit/s CBR MP
        ─▶ AnalysisResult JSON in the job row; everything deleted after the TTL (6 h)
 ```
 
-Every step sits behind an interface (`pipeline/interfaces.py`), so recognizers (Chordino, BTC in
-M5), beat trackers and separators can be swapped and compared by `eval/evaluate.py`.
+Every step sits behind an interface (`pipeline/interfaces.py`), so recognizers, beat trackers
+and separators can be swapped and compared by `eval/evaluate.py` (results:
+`services/analyzer/eval/report.md`).
+
+**Why Chordino stays the default (M5).** On the synthetic sets both recognizers get root and
+major/minor right, and Chordino is clearly better on sevenths: BTC tends to answer the triad.
+BTC is offered per upload because it was trained on real recordings and may do better on them;
+the eval CLI measures that on personal files (`--data`, never committed). lv-chordia was measured
+too and not adopted (no more accurate here, much slower, file-path API, unrestricted pickle
+loading).
+
+**BTC as a typed port.** The paper's code is a research script (YAML config, `np.float`, a
+training-only LSTM in the output layer, pickled checkpoint). `pipeline/btc.py` re-implements the
+inference path with the same module names, so the published weights load with strict key
+checks after dropping the unused LSTM, and `torch.load(weights_only=True)` with an allow-list of
+the two NumPy types the checkpoint stores its statistics as. Its frame predictions match the
+original code exactly (checked frame by frame on the synthetic songs).
+
+**Why separation is opt-in.** Demucs costs about the length of the song on a 4-core CPU and
+changes nothing on clean mixes; it helps when a loud voice or drums mislead the recognizer.
+Weights come as safetensors from a pinned commit (no pickle), the run is deterministic
+(`shifts=0`), and the stems are cached by the SHA-256 of the input samples for the job TTL. The
+analysis signal is mono, so separation runs without stereo cues; a stereo decode for separation
+is a possible improvement.
 
 **Why snap with a tolerance?** Recognizers report changes within ~0.1 s, but a beat tracker can
 miss beats or lock to half tempo. Snapping only to a beat within half a beat (at most 0.3 s) keeps

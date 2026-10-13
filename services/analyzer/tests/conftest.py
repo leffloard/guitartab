@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 
 from barrefree_analyzer.config import Settings
+from barrefree_analyzer.models import model_path, required_models
 
 #: `pnpm check` sets this so that a missing plugin or model fails instead of skipping.
 REQUIRE = os.environ.get("BARREFREE_REQUIRE_MODELS") == "1"
@@ -24,11 +25,16 @@ def vamp_dir() -> Path:
     return path
 
 
+def need_model(settings: Settings, key: str) -> Path:
+    path = model_path(settings, key)
+    _need(path.is_file(), f"{key} weights (barrefree-download-models)")
+    return path
+
+
 @pytest.fixture(scope="session")
 def pipeline_settings(vamp_dir: Path) -> Settings:
+    """Default settings (every recognizer, separation on) with all their weights present."""
     settings = Settings(vamp_path=vamp_dir)
-    _need(
-        (settings.models_path / "beat_this" / "final0.ckpt").is_file(),
-        "beat_this weights (barrefree-download-models)",
-    )
+    for key in required_models(settings):
+        need_model(settings, key)
     return settings

@@ -3,7 +3,7 @@
 POST   /api/jobs               multipart (file, recognizer?, separate?, transcribe?) → {jobId}
 GET    /api/jobs/{id}          job state, with the result once it is done
 GET    /api/jobs/{id}/events   Server-Sent Events: one "job" event per change, then "end"
-GET    /api/jobs/{id}/audio    normalized mono AAC copy for the player (HTTP Range supported)
+GET    /api/jobs/{id}/audio    normalized mono MP3 copy for the player (HTTP Range supported)
 DELETE /api/jobs/{id}          deletes the job, its audio and its result now
 """
 
@@ -108,6 +108,10 @@ def build_router(settings: Settings, store: JobStore) -> APIRouter:
         chosen = recognizer or settings.recognizers[0]
         if chosen not in settings.recognizers:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Unknown recognizer '{chosen}'.")
+        if separate and not settings.separation:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, "Source separation is not available here."
+            )
         if await run_in_threadpool(store.count_pending) >= settings.max_pending_jobs:
             raise HTTPException(
                 status.HTTP_503_SERVICE_UNAVAILABLE, "The server is busy. Try again later."

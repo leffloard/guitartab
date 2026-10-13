@@ -119,9 +119,19 @@ class Worker:
         self._last_cleanup = now
         for job_id in self.store.fail_stale(now - self.settings.job_timeout_sec):
             log.warning("job %s timed out", job_id)
-        for job_id in self.store.expired(now - self.settings.temp_file_ttl_sec):
+        ttl = self.settings.temp_file_ttl_sec
+        for job_id in self.store.expired(now - ttl):
             shutil.rmtree(self.settings.jobs_path / job_id, ignore_errors=True)
             self.store.delete(job_id)
+        # Derived audio (separated stems) follows the same TTL as the job files.
+        cache = self.settings.cache_path
+        if cache.is_dir():
+            for entry in cache.rglob("*"):
+                try:
+                    if entry.is_file() and now - entry.stat().st_mtime > ttl:
+                        entry.unlink()
+                except FileNotFoundError:
+                    pass
         jobs_path = self.settings.jobs_path
         if jobs_path.is_dir():
             for directory in jobs_path.iterdir():

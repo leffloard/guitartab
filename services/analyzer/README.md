@@ -16,7 +16,8 @@ Chordino plugin (Debian/Ubuntu: `apt install ffmpeg git g++ make libboost-dev`).
 ```bash
 uv sync                               # .venv with dev tools (torch comes from the CPU index)
 scripts/build-vamp-plugins.sh         # builds Chordino into .vamp/ (needs g++, make, libboost-dev)
-uv run barrefree-download-models      # beat_this weights into local-data/models (SHA-256 checked)
+uv run barrefree-download-models      # beat_this, BTC and Demucs weights into local-data/models
+                                      # (pinned URLs, SHA-256 checked; about 180 MB)
 ```
 
 ## Run
@@ -41,10 +42,10 @@ variables, see [`config.py`](src/barrefree_analyzer/config.py).
 
 ## Pipeline
 
-decode (ffmpeg, mono 22.05 kHz) → beats + downbeats (beat_this, librosa fallback) → chords
-(Chordino) → clean-up (snap changes to beats, drop sub-beat segments, mark lead-in/tail silence,
-chroma-based confidence) → key (Krumhansl–Kessler on CQT chroma, relative major/minor decided by
-the tonic chord). Each step is an interface in
+decode (ffmpeg, mono 22.05 kHz) → optional separation (Demucs: drums and vocals removed) →
+beats + downbeats (beat_this, librosa fallback) → chords (Chordino by default, or BTC) → clean-up
+(snap changes to beats, drop sub-beat segments, mark silence, confidence) → key
+(Krumhansl–Kessler on CQT chroma, relative major/minor decided by the tonic chord). Each step is an interface in
 [`pipeline/interfaces.py`](src/barrefree_analyzer/pipeline/interfaces.py).
 
 ## Quality
@@ -55,6 +56,8 @@ uv run python eval/evaluate.py --synthetic        # mir_eval scores on synthetic
 uv run barrefree-export-schema                    # after changing schema.py, then pnpm gen:contracts
 ```
 
-On the synthetic set (10 songs, rendered with an additive synth, exact ground truth): majmin
-99.7 %, sevenths 97.0 %, MIREX key score 0.95. Real recordings score lower; evaluate your own
-with `eval/evaluate.py --data` (see [eval/README.md](eval/README.md)).
+On the synthetic set (10 songs, rendered with an additive synth, exact ground truth) Chordino
+scores majmin 99.7 %, sevenths 97.0 %, MIREX key score 0.95. The comparison with BTC and source
+separation, on this set and on a "busy" variant with loud drums and a singing lead, is in
+[eval/report.md](eval/report.md). Real recordings score lower; evaluate your own with
+`eval/evaluate.py --data` (see [eval/README.md](eval/README.md)).

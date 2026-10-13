@@ -43,6 +43,30 @@ MODELS: dict[str, ModelFile] = {
         size=81_058_141,
         license="MIT",
     ),
+    # BTC large-vocabulary model (170 classes), from the paper's repository at a pinned commit.
+    # Code MIT; the weights carry no separate license (see docs/licenses.md): downloaded, never
+    # redistributed.
+    "btc": ModelFile(
+        key="btc",
+        path="btc/btc_model_large_voca.pt",
+        url="https://raw.githubusercontent.com/jayg996/BTC-ISMIR19/"
+        "2682317be668032e6e4b269ded36adaa2ad57df0/test/btc_model_large_voca.pt",
+        sha256="1673d23f8f9a55ae7f9e8b80a51da616debb22675b8d8b67ea6ce0ef37b0ab51",
+        size=12_229_576,
+        license="MIT code; weights without a stated license",
+    ),
+    # Hybrid Transformer Demucs (htdemucs, signature 955717e8) as safetensors, from the
+    # maintainer's Hugging Face repository at a pinned commit. Code MIT; the model card states
+    # no license for the weights (see docs/licenses.md): downloaded, never redistributed.
+    "htdemucs": ModelFile(
+        key="htdemucs",
+        path="demucs/955717e8.safetensors",
+        url="https://huggingface.co/adefossez/HTDemucs/resolve/"
+        "cbc8a9b1a87023b7fd74e7b3412e6321c0eab003/955717e8.safetensors",
+        sha256="d9fa14133cfcc034a6758923bb3a8ca9f8dfd0b582134643bbf83f72c17576dd",
+        size=84_025_440,
+        license="MIT code; weights without a stated license",
+    ),
 }
 
 
@@ -110,6 +134,10 @@ def required_models(settings: Settings) -> list[str]:
     keys = []
     if settings.beat_tracker == "beat_this":
         keys.append("beat_this")
+    if "btc" in settings.recognizers:
+        keys.append("btc")
+    if settings.separation:
+        keys.append("htdemucs")
     return keys
 
 

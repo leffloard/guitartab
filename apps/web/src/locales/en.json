@@ -138,7 +138,13 @@
       "offline": "The server cannot be reached.",
       "generic": "The upload failed. Please try again."
     },
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "recognizers": {
+      "chordino": "Chordino (chroma + HMM, best on our tests)",
+      "btc": "BTC (neural network, large vocabulary)"
+    },
+    "separate": "Separate the instruments first",
+    "separateHint": "Removes vocals and drums before listening for chords. Helps when a loud voice or drums confuse the result; takes about as long as the song itself."
   },
   "job": {
     "title": "Analyzing",

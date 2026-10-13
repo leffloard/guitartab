@@ -138,7 +138,13 @@
       "offline": "Sunucuya ulaşılamıyor.",
       "generic": "Yükleme başarısız oldu. Lütfen tekrar dene."
     },
-    "cancel": "İptal"
+    "cancel": "İptal",
+    "recognizers": {
+      "chordino": "Chordino (kroma + HMM, testlerimizde en iyisi)",
+      "btc": "BTC (sinir ağı, geniş akor sözlüğü)"
+    },
+    "separate": "Önce enstrümanları ayır",
+    "separateHint": "Akorları dinlemeden önce vokali ve davulu çıkarır. Yüksek sesli vokal ya da davul sonucu karıştırıyorsa işe yarar; yaklaşık şarkının süresi kadar sürer."
   },
   "job": {
     "title": "Analiz ediliyor",

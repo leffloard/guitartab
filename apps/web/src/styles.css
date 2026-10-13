@@ -205,9 +205,15 @@ select {
 }
 
 .check input {
+  flex: none;
   width: 22px;
   height: 22px;
   accent-color: var(--accent);
+}
+
+/* A checkbox with an explanation under its label */
+.check small {
+  display: block;
 }
 
 /* Controls */

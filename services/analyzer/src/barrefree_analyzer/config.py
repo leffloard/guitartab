@@ -44,7 +44,13 @@ class Settings(BaseSettings):
         "'CF-Connecting-IP' with Cloudflare Tunnel. Unset: the TCP peer address.",
     )
     recognizers: list[str] = Field(
-        default=["chordino"], description="Enabled chord recognizers, the first is the default."
+        default=["chordino", "btc"],
+        description="Enabled chord recognizers ('chordino', 'btc'), the first is the default.",
+    )
+    separation: bool = Field(
+        default=True,
+        description="Offer source separation (Demucs) as a job option. CPU-heavy: tens of "
+        "seconds per minute of music.",
     )
     beat_tracker: str = Field(default="beat_this", description="'beat_this' or 'librosa'.")
     vamp_path: Path = Field(
@@ -58,6 +64,11 @@ class Settings(BaseSettings):
     @property
     def models_path(self) -> Path:
         return self.model_dir if self.model_dir is not None else self.data_dir / "models"
+
+    @property
+    def cache_path(self) -> Path:
+        """Derived audio (separated stems); cleared on the same TTL as job files."""
+        return self.data_dir / "cache"
 
     @property
     def jobs_path(self) -> Path:

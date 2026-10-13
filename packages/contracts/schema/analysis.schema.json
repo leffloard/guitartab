@@ -150,10 +150,15 @@
           "type": "boolean"
         },
         "recognizers": {
+          "description": "Chord recognizers, the default first.",
           "items": {
             "type": "string"
           },
           "type": "array"
+        },
+        "separation": {
+          "description": "Whether jobs may ask for source separation.",
+          "type": "boolean"
         },
         "maxUploadMb": {
           "type": "integer"
@@ -165,6 +170,7 @@
       "required": [
         "urlImport",
         "recognizers",
+        "separation",
         "maxUploadMb",
         "maxDurationSec"
       ],

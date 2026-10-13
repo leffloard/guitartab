@@ -14,7 +14,8 @@ def test_health_reports_ok_and_features(tmp_path: Path) -> None:
     assert body["status"] == "ok"
     assert body["features"] == {
         "urlImport": False,
-        "recognizers": ["chordino"],
+        "recognizers": ["chordino", "btc"],
+        "separation": True,
         "maxUploadMb": 50,
         "maxDurationSec": 900,
     }

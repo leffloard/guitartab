@@ -6,6 +6,8 @@ import { ApiRequestError, uploadAudio } from '../lib/api'
 import { navigate } from '../lib/router'
 
 const ACCEPT = 'audio/*,.mp3,.wav,.flac,.ogg,.m4a'
+/** Recognizers with a readable name in the locales; others are shown by their id. */
+const RECOGNIZER_KEYS: readonly string[] = ['chordino', 'btc']
 
 interface Props {
   /** Null while unknown or when the analyzer cannot be reached. */
@@ -23,6 +25,8 @@ export function UploadCard({ health, healthLoaded }: Props) {
   const [dragging, setDragging] = useState(false)
   const recognizers = health?.features.recognizers ?? []
   const [recognizer, setRecognizer] = useState<string>('')
+  const [separate, setSeparate] = useState(false)
+  const canSeparate = health?.features.separation ?? false
   const sending = useRef<AbortController | null>(null)
 
   // Leaving the page cancels an upload in progress (it would otherwise open its job page later).
@@ -47,6 +51,7 @@ export function UploadCard({ health, healthLoaded }: Props) {
     try {
       const id = await uploadAudio(file, {
         ...(recognizer ? { recognizer } : {}),
+        separate: separate && canSeparate,
         onProgress: setProgress,
         signal: controller.signal,
       })
@@ -120,10 +125,23 @@ export function UploadCard({ health, healthLoaded }: Props) {
                 <option value="">{t('upload.recognizerDefault')}</option>
                 {recognizers.map((r) => (
                   <option key={r} value={r}>
-                    {r}
+                    {RECOGNIZER_KEYS.includes(r) ? t(`upload.recognizers.${r}`) : r}
                   </option>
                 ))}
               </select>
+            </label>
+          )}
+          {canSeparate && (
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={separate}
+                onChange={(e) => setSeparate(e.target.checked)}
+              />
+              <span>
+                {t('upload.separate')}
+                <small className="hint">{t('upload.separateHint')}</small>
+              </span>
             </label>
           )}
           <div className="actions">

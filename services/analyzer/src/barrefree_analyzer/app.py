@@ -51,6 +51,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             features=Features(
                 url_import=settings.enable_url_import,
                 recognizers=settings.recognizers,
+                separation=settings.separation,
                 max_upload_mb=settings.max_upload_mb,
                 max_duration_sec=settings.max_duration_sec,
             ),
