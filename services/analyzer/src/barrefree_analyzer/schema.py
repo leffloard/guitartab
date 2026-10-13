@@ -159,6 +159,7 @@ class Features(CamelModel):
     url_import: bool
     recognizers: list[str] = Field(description="Chord recognizers, the default first.")
     separation: bool = Field(description="Whether jobs may ask for source separation.")
+    transcription: bool = Field(description="Whether jobs may ask for notes (tab view).")
     max_upload_mb: int
     max_duration_sec: int
 
@@ -208,6 +209,7 @@ class UrlJobRequest(CamelModel):
     title: str | None = Field(default=None, max_length=200)
     recognizer: str | None = None
     separate: bool = False
+    transcribe: bool = False
 
 
 #: Models exported next to AnalysisResult for the web app's API client: responses...

@@ -148,12 +148,16 @@ def test_rejects_non_audio_and_oversized_uploads(client: TestClient, tmp_path: P
     assert response.json()["detail"] == "The file is too large."  # type: ignore[attr-defined]
 
 
-def test_rejects_separation_when_it_is_switched_off(tmp_path: Path) -> None:
-    settings = Settings(data_dir=tmp_path / "data", separation=False)
+def test_rejects_separation_and_notes_when_switched_off(tmp_path: Path) -> None:
+    settings = Settings(data_dir=tmp_path / "data", separation=False, transcription=False)
     with TestClient(create_app(settings)) as client:
         response = upload(client, make_audio(tmp_path / "a.wav"), separate="true")
         assert response.status_code == 400  # type: ignore[attr-defined]
-        assert client.get("/api/health").json()["features"]["separation"] is False
+        response = upload(client, make_audio(tmp_path / "b.wav"), transcribe="true")
+        assert response.status_code == 400  # type: ignore[attr-defined]
+        features = client.get("/api/health").json()["features"]
+        assert features["separation"] is False
+        assert features["transcription"] is False
 
 
 def test_rejects_audio_too_short_to_analyze(client: TestClient, tmp_path: Path) -> None:

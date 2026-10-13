@@ -127,6 +127,10 @@ def build_router(settings: Settings, store: JobStore) -> APIRouter:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST, "Source separation is not available here."
             )
+        if transcribe and not settings.transcription:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, "Note transcription is not available here."
+            )
         if await run_in_threadpool(store.count_pending) >= settings.max_pending_jobs:
             raise HTTPException(
                 status.HTTP_503_SERVICE_UNAVAILABLE, "The server is busy. Try again later."
@@ -252,12 +256,16 @@ def build_import_router(
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST, "Source separation is not available here."
             )
+        if body.transcribe and not settings.transcription:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, "Note transcription is not available here."
+            )
         if await run_in_threadpool(store.count_pending) >= settings.max_pending_jobs:
             raise HTTPException(
                 status.HTTP_503_SERVICE_UNAVAILABLE, "The server is busy. Try again later."
             )
         job_id = new_job_id()
-        options = JobOptions(recognizer=chosen, separate=body.separate)
+        options = JobOptions(recognizer=chosen, separate=body.separate, transcribe=body.transcribe)
         name = (body.title or body.video_id).strip()[:200] or body.video_id
         await run_in_threadpool(
             store.create,

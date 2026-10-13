@@ -118,6 +118,10 @@ export interface Features {
    * Whether jobs may ask for source separation.
    */
   separation: boolean
+  /**
+   * Whether jobs may ask for notes (tab view).
+   */
+  transcription: boolean
   maxUploadMb: number
   maxDurationSec: number
 }
@@ -236,4 +240,5 @@ export interface UrlJobRequest {
   title?: string | null
   recognizer?: string | null
   separate?: boolean
+  transcribe?: boolean
 }

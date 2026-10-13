@@ -219,6 +219,10 @@
           "description": "Whether jobs may ask for source separation.",
           "type": "boolean"
         },
+        "transcription": {
+          "description": "Whether jobs may ask for notes (tab view).",
+          "type": "boolean"
+        },
         "maxUploadMb": {
           "type": "integer"
         },
@@ -230,6 +234,7 @@
         "urlImport",
         "recognizers",
         "separation",
+        "transcription",
         "maxUploadMb",
         "maxDurationSec"
       ],
@@ -523,6 +528,10 @@
           "default": null
         },
         "separate": {
+          "default": false,
+          "type": "boolean"
+        },
+        "transcribe": {
           "default": false,
           "type": "boolean"
         }

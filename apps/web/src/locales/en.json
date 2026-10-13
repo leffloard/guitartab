@@ -144,7 +144,9 @@
       "btc": "BTC (neural network, large vocabulary)"
     },
     "separate": "Separate the instruments first",
-    "separateHint": "Removes vocals and drums before listening for chords. Helps when a loud voice or drums confuse the result; takes about as long as the song itself."
+    "separateHint": "Removes vocals and drums before listening for chords. Helps when a loud voice or drums confuse the result; takes about as long as the song itself.",
+    "transcribe": "Also write out the notes (tab, experimental)",
+    "transcribeHint": "Transcribes the single notes too, for a tab of a finger-picked part. Works best on a clean guitar recording."
   },
   "job": {
     "title": "Analyzing",
@@ -260,5 +262,19 @@
       "failed": "The link could not be looked up right now. Try again later.",
       "none": "No videos were found for this track."
     }
+  },
+  "tab": {
+    "title": "Tab (experimental)",
+    "notice": "Written out by a model from the recording, in open position (frets 0–5 above the capo, no barre). Check it by ear: transcription misses and adds notes, especially with singing or drums.",
+    "show": "Show tab",
+    "hide": "Hide tab",
+    "copy": "Copy as text",
+    "download": "Download MusicXML",
+    "capo": "Capo on fret {{capo}}: frets count from the capo.",
+    "unplayable_one": "{{count}} note is out of reach in open position and left out.",
+    "unplayable_other": "{{count}} notes are out of reach in open position and left out.",
+    "empty": "No notes to show in open position.",
+    "rendering": "Drawing the tab…",
+    "renderFailed": "The tab could not be drawn. Copy or download it instead."
   }
 }

@@ -144,7 +144,9 @@
       "btc": "BTC (sinir ağı, geniş akor sözlüğü)"
     },
     "separate": "Önce enstrümanları ayır",
-    "separateHint": "Akorları dinlemeden önce vokali ve davulu çıkarır. Yüksek sesli vokal ya da davul sonucu karıştırıyorsa işe yarar; yaklaşık şarkının süresi kadar sürer."
+    "separateHint": "Akorları dinlemeden önce vokali ve davulu çıkarır. Yüksek sesli vokal ya da davul sonucu karıştırıyorsa işe yarar; yaklaşık şarkının süresi kadar sürer.",
+    "transcribe": "Notaları da çıkar (tab, deneysel)",
+    "transcribeHint": "Parmakla çalınan bir partinin tabı için tek tek notaları da çıkarır. En iyi sonucu temiz bir gitar kaydında verir."
   },
   "job": {
     "title": "Analiz ediliyor",
@@ -260,5 +262,19 @@
       "failed": "Bağlantıya şu an bakılamadı. Biraz sonra tekrar dene.",
       "none": "Bu şarkı için video bulunamadı."
     }
+  },
+  "tab": {
+    "title": "Tab (deneysel)",
+    "notice": "Kayıttan bir model tarafından açık pozisyonda yazıldı (kapodan itibaren 0–5. perdeler, barresiz). Kulakla kontrol et: transkripsiyon, özellikle vokal ya da davul varken nota kaçırabilir veya fazladan nota ekleyebilir.",
+    "show": "Tabı göster",
+    "hide": "Tabı gizle",
+    "copy": "Metin olarak kopyala",
+    "download": "MusicXML indir",
+    "capo": "Kapo {{capo}}. perdede: perdeler kapodan itibaren sayılır.",
+    "unplayable_one": "{{count}} nota açık pozisyonda ulaşılamadığı için çıkarıldı.",
+    "unplayable_other": "{{count}} nota açık pozisyonda ulaşılamadığı için çıkarıldı.",
+    "empty": "Açık pozisyonda gösterilecek nota yok.",
+    "rendering": "Tab çiziliyor…",
+    "renderFailed": "Tab çizilemedi. Kopyalayabilir ya da indirebilirsin."
   }
 }

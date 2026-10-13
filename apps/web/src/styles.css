@@ -918,6 +918,15 @@ input[type='file']:focus-visible + .button {
   color: var(--muted);
 }
 
+/* Tab (experimental) */
+.tab-render {
+  overflow-x: auto;
+  border-radius: var(--radius);
+  /* alphaTab draws dark notation: give it a light page in both themes. */
+  background: #fff;
+  color: #000;
+}
+
 /* Library */
 .song-list {
   display: grid;

@@ -10,7 +10,9 @@ draws the finger diagrams and keeps the chords in sync with the music while you 
 > lyrics or ChordPro) and get a barre-free version with capo, diagrams and alternatives, in
 > Turkish or English, offline too. Upload a recording and the analyzer finds its beats, key and
 > chords; the song page plays it with the barre-free chords in sync, slower without changing
-> the pitch, with an A-B loop, chord fixes and a library kept in your browser.
+> the pitch, with an A-B loop, chord fixes and a library kept in your browser. Experimental:
+> import by YouTube/Spotify link (off by default) and a tab of the transcribed notes in open
+> position, drawn in the page and downloadable as MusicXML.
 
 ## Repository layout
 

@@ -6,7 +6,12 @@ from barrefree_analyzer.config import Settings
 from barrefree_analyzer.models import model_path
 from barrefree_analyzer.pipeline.beats import BeatThisTracker, LibrosaBeatTracker
 from barrefree_analyzer.pipeline.chordino import ChordinoRecognizer
-from barrefree_analyzer.pipeline.interfaces import BeatTracker, ChordRecognizer, Separator
+from barrefree_analyzer.pipeline.interfaces import (
+    BeatTracker,
+    ChordRecognizer,
+    NoteTranscriber,
+    Separator,
+)
 from barrefree_analyzer.pipeline.key import CqtChroma, KrumhanslKeyEstimator
 from barrefree_analyzer.pipeline.run import Pipeline
 
@@ -41,6 +46,12 @@ def build_separator(settings: Settings) -> Separator:
     )
 
 
+def build_transcriber(settings: Settings) -> NoteTranscriber:
+    from barrefree_analyzer.pipeline.notes import BasicPitchTranscriber
+
+    return BasicPitchTranscriber(model_path(settings, "basic_pitch"))
+
+
 def build_pipeline(settings: Settings, *, separation: bool | None = None) -> Pipeline:
     """Loads every enabled model; ``separation`` overrides ``settings.separation``."""
     return Pipeline(
@@ -51,4 +62,5 @@ def build_pipeline(settings: Settings, *, separation: bool | None = None) -> Pip
         separator=build_separator(settings)
         if (settings.separation if separation is None else separation)
         else None,
+        transcriber=build_transcriber(settings) if settings.transcription else None,
     )

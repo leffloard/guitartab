@@ -72,6 +72,7 @@ def create_app(
                 url_import=url_import,
                 recognizers=settings.recognizers,
                 separation=settings.separation,
+                transcription=settings.transcription,
                 max_upload_mb=settings.max_upload_mb,
                 max_duration_sec=settings.max_duration_sec,
             ),

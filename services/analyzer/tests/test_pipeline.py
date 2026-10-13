@@ -268,3 +268,16 @@ def test_full_pipeline_with_btc_after_separation(pipeline_settings: Settings) ->
     majmin = tally.score("majmin")
     assert majmin is not None
     assert majmin > 0.9
+
+
+def test_full_pipeline_transcribes_notes_when_asked(pipeline_settings: Settings) -> None:
+    """M7: notes come with the chords when a job asks for them (the tab view's input)."""
+    from barrefree_analyzer.synth import ARPEGGIO, render_arpeggio
+
+    pipeline = build_pipeline(pipeline_settings)
+    audio, reference = render_arpeggio(ARPEGGIO)
+    without = pipeline.run(audio, RATE, JobOptions())
+    assert without.notes == []
+    result = pipeline.run(audio, RATE, JobOptions(transcribe=True))
+    assert len(result.notes) >= 0.9 * len(reference)
+    assert {n.midi for n in result.notes} >= {m for _, _, m in reference}

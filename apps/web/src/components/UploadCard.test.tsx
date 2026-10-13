@@ -20,6 +20,7 @@ const health: Health = {
     urlImport: false,
     recognizers: ['chordino', 'btc'],
     separation: true,
+    transcription: true,
     maxUploadMb: 50,
     maxDurationSec: 900,
   },
@@ -63,7 +64,8 @@ describe('upload card', () => {
         healthLoaded
       />,
     )
-    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+    expect(screen.queryByRole('checkbox', { name: /Separate/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: /write out the notes/ })).toBeInTheDocument()
   })
 
   it('cancels the upload when the page is left', async () => {

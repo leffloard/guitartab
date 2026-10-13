@@ -19,6 +19,7 @@ import { DiagramList } from '../components/DiagramList'
 import { EditChordDialog } from '../components/EditChordDialog'
 import { Link } from '../components/Link'
 import { Player, type PlayerHandle } from '../components/Player'
+import { TabSection } from '../components/TabSection'
 import { useArrangement, type ArrangementView } from '../hooks/useArrangement'
 import type { Settings } from '../hooks/useSettings'
 import { useWakeLock } from '../hooks/useWakeLock'
@@ -361,6 +362,18 @@ function SongView({
           onEdit={setEditIndex}
         />
       </section>
+
+      {analysis.notes.length > 0 && (
+        <TabSection
+          notes={analysis.notes}
+          title={song.title}
+          capo={capoOn && option ? option.capo : 0}
+          shift={view.shift}
+          bpm={analysis.tempoBpm ?? null}
+          firstDownbeat={analysis.downbeats[0] ?? analysis.beats[0] ?? 0}
+          beatsPerBar={beatsPerBar}
+        />
+      )}
 
       {option && (
         <DiagramList

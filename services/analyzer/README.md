@@ -16,8 +16,8 @@ Chordino plugin (Debian/Ubuntu: `apt install ffmpeg git g++ make libboost-dev`).
 ```bash
 uv sync                               # .venv with dev tools (torch comes from the CPU index)
 scripts/build-vamp-plugins.sh         # builds Chordino into .vamp/ (needs g++, make, libboost-dev)
-uv run barrefree-download-models      # beat_this, BTC and Demucs weights into local-data/models
-                                      # (pinned URLs, SHA-256 checked; about 180 MB)
+uv run barrefree-download-models      # beat_this, BTC, Demucs and Basic Pitch weights into
+                                      # local-data/models (pinned URLs, SHA-256 checked; ~180 MB)
 ```
 
 ## Run
@@ -45,7 +45,8 @@ variables, see [`config.py`](src/barrefree_analyzer/config.py).
 decode (ffmpeg, mono 22.05 kHz) → optional separation (Demucs: drums and vocals removed) →
 beats + downbeats (beat_this, librosa fallback) → chords (Chordino by default, or BTC) → clean-up
 (snap changes to beats, drop sub-beat segments, mark silence, confidence) → key
-(Krumhansl–Kessler on CQT chroma, relative major/minor decided by the tonic chord). Each step is an interface in
+(Krumhansl–Kessler on CQT chroma, relative major/minor decided by the tonic chord) → optional
+notes (Basic Pitch on ONNX Runtime, on the "other" stem when separated). Each step is an interface in
 [`pipeline/interfaces.py`](src/barrefree_analyzer/pipeline/interfaces.py).
 
 ## Quality

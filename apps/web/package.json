@@ -13,6 +13,7 @@
   "dependencies": {
     "@barrefree/contracts": "workspace:*",
     "@barrefree/theory": "workspace:*",
+    "@coderline/alphatab": "catalog:",
     "i18next": "catalog:",
     "i18next-browser-languagedetector": "catalog:",
     "idb": "catalog:",

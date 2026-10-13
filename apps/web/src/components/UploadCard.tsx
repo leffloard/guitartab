@@ -27,6 +27,8 @@ export function UploadCard({ health, healthLoaded }: Props) {
   const [recognizer, setRecognizer] = useState<string>('')
   const [separate, setSeparate] = useState(false)
   const canSeparate = health?.features.separation ?? false
+  const [transcribe, setTranscribe] = useState(false)
+  const canTranscribe = health?.features.transcription ?? false
   const sending = useRef<AbortController | null>(null)
 
   // Leaving the page cancels an upload in progress (it would otherwise open its job page later).
@@ -52,6 +54,7 @@ export function UploadCard({ health, healthLoaded }: Props) {
       const id = await uploadAudio(file, {
         ...(recognizer ? { recognizer } : {}),
         separate: separate && canSeparate,
+        transcribe: transcribe && canTranscribe,
         onProgress: setProgress,
         signal: controller.signal,
       })
@@ -129,6 +132,19 @@ export function UploadCard({ health, healthLoaded }: Props) {
                   </option>
                 ))}
               </select>
+            </label>
+          )}
+          {canTranscribe && (
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={transcribe}
+                onChange={(e) => setTranscribe(e.target.checked)}
+              />
+              <span>
+                {t('upload.transcribe')}
+                <small className="hint">{t('upload.transcribeHint')}</small>
+              </span>
             </label>
           )}
           {canSeparate && (

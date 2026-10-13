@@ -13,6 +13,7 @@ dependencies = [
     "librosa>=0.11",
     "mir-eval>=0.8",
     "numpy>=2.2",
+    "onnxruntime>=1.22",
     "pydantic>=2.11",
     "pydantic-settings>=2.10",
     "python-multipart>=0.0.20",
@@ -95,7 +96,7 @@ plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
 # Untyped third-party packages.
-module = ["mir_eval.*", "mir_eval", "soundfile", "vamp", "vampyhost", "beat_this.*", "yt_dlp", "yt_dlp.*"]
+module = ["mir_eval.*", "mir_eval", "soundfile", "vamp", "vampyhost", "beat_this.*", "yt_dlp", "yt_dlp.*", "onnxruntime", "onnxruntime.*", "scipy", "scipy.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

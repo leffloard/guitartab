@@ -145,6 +145,11 @@ docker compose --profile tunnel up -d   # + Cloudflare Tunnel (CLOUDFLARE_TUNNEL
   setuptools; it needs g++. `VAMP_PATH` must be set before the first plugin call
   (`Settings.vamp_path`, `/opt/vamp` in Docker). Chordino emits major chords as a bare root
   (`C`, `C/3`); `chordino.to_harte` spells them `C:maj`.
+- **Tab mode** (M7, experimental): notes from `pipeline/notes.py` (Basic Pitch on ONNX Runtime,
+  ported because its package needs TensorFlow), tab assignment and MusicXML in
+  `packages/theory/src/tab.ts` (string index 0 = low E, as in fret arrays; MusicXML string 1 =
+  high E), drawn by alphaTab in `components/TabView.tsx` (lazy chunk, no workers, no player).
+  Ported third-party code keeps its notice in `services/analyzer/NOTICE`.
 - **Link import** (`urlimport.py`, M6) is off by default and optional (`uv sync --extra url`;
   the Docker image installs it). Never fetch a URL the user typed: parse it to an id with
   `parse_link` and rebuild the request on a fixed host. yt-dlp stays limited to its YouTube
@@ -176,5 +181,5 @@ docker compose --profile tunnel up -d   # + Cloudflare Tunnel (CLOUDFLARE_TUNNEL
 | M4  | Synced player, speed/A-B loop, confidence marks, manual edits, IndexedDB library                | ✅ done |
 | M5  | BTC (+ lv-chordia) recognizers, Demucs, evaluation report                                       | ✅ done |
 | M6  | URL import (YouTube + Spotify metadata → search → confirm), feature flag                        | ✅ done |
-| M7  | Tab mode (basic-pitch ONNX + tab assignment + alphaTab)                                         | next    |
-| M8  | Docker deploy guide (Windows Server/WSL2), Cloudflare Tunnel, benchmarks                        |         |
+| M7  | Tab mode (basic-pitch ONNX + tab assignment + alphaTab)                                         | ✅ done |
+| M8  | Docker deploy guide (Windows Server/WSL2), Cloudflare Tunnel, benchmarks                        | next    |

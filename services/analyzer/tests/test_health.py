@@ -16,6 +16,7 @@ def test_health_reports_ok_and_features(tmp_path: Path) -> None:
         "urlImport": False,
         "recognizers": ["chordino", "btc"],
         "separation": True,
+        "transcription": True,
         "maxUploadMb": 50,
         "maxDurationSec": 900,
     }

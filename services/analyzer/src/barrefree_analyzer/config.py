@@ -47,6 +47,10 @@ class Settings(BaseSettings):
         default=["chordino", "btc"],
         description="Enabled chord recognizers ('chordino', 'btc'), the first is the default.",
     )
+    transcription: bool = Field(
+        default=True,
+        description="Offer note transcription (Basic Pitch) for the experimental tab view.",
+    )
     separation: bool = Field(
         default=True,
         description="Offer source separation (Demucs) as a job option. CPU-heavy: tens of "

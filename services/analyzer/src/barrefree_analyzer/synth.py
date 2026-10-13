@@ -271,3 +271,70 @@ def write_dataset(
         (out_dir / f"{spec.name}.lab").write_text(song.lab(), encoding="utf-8")
         paths.append(wav)
     return paths
+
+
+@dataclass(frozen=True)
+class ArpeggioSpec:
+    """A finger-picked arpeggio: one MIDI note per step, each held for ``ring`` steps."""
+
+    name: str
+    shapes: list[list[int]]
+    bpm: float = 100.0
+    steps_per_beat: int = 2
+    ring: float = 1.0
+    seed: int = 0
+
+
+def pluck(
+    midi: float, seconds: float, rate: int, rng: np.random.Generator
+) -> npt.NDArray[np.float64]:
+    """A plucked string (Karplus-Strong): a noise burst in a delay line with a damping filter.
+
+    Its spectrum and decay are close enough to a guitar's for a transcription model, unlike a
+    plain sum of sines.
+    """
+    period = rate / midi_to_hz(midi)
+    length = max(2, int(period))
+    line = rng.uniform(-1.0, 1.0, length)
+    n = int(seconds * rate)
+    out = np.zeros(n)
+    k = 0
+    for i in range(n):
+        out[i] = line[k]
+        line[k] = 0.996 * 0.5 * (line[k] + line[(k + 1) % length])
+        k = (k + 1) % length
+    attack = np.minimum(np.arange(n) / (0.003 * rate), 1.0)
+    return out * attack
+
+
+def render_arpeggio(
+    spec: ArpeggioSpec, rate: int = RATE
+) -> tuple[npt.NDArray[np.float32], list[tuple[float, float, int]]]:
+    """The audio and the reference notes (start, end, MIDI) of an arpeggio."""
+    rng = np.random.default_rng(spec.seed)
+    step = 60.0 / spec.bpm / spec.steps_per_beat
+    notes: list[tuple[float, float, int]] = []
+    t = 0.5
+    for shape in spec.shapes:
+        for midi in shape:
+            notes.append((t, t + step * spec.ring, midi))
+            t += step
+    buf = np.zeros(int((t + 1.5) * rate))
+    for start, end, midi in notes:
+        # The string keeps ringing a little after the next pick, as it does on a guitar.
+        _add(buf, start, pluck(midi, end - start + 0.3, rate, rng), rate)
+    peak = float(np.max(np.abs(buf))) or 1.0
+    return (0.9 * buf / peak).astype(np.float32), notes
+
+
+#: C, Am, F, G as open-position arpeggios (bass, then up and down the chord), twice.
+ARPEGGIO = ArpeggioSpec(
+    "open-arpeggio",
+    [
+        [48, 52, 55, 60, 64, 60, 55, 52],
+        [45, 52, 57, 60, 64, 60, 57, 52],
+        [41, 48, 53, 57, 60, 57, 53, 48],
+        [43, 47, 50, 55, 59, 55, 50, 47],
+    ]
+    * 2,
+)

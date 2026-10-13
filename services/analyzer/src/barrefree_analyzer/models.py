@@ -67,6 +67,16 @@ MODELS: dict[str, ModelFile] = {
         size=84_025_440,
         license="MIT code; weights without a stated license",
     ),
+    # Basic Pitch "nmp" (ICASSP 2022) as ONNX, from the v0.4.0 tag. Apache-2.0, Spotify AB.
+    "basic_pitch": ModelFile(
+        key="basic_pitch",
+        path="basic_pitch/nmp.onnx",
+        url="https://raw.githubusercontent.com/spotify/basic-pitch/"
+        "9991303bba609a3b93089d13ec80d1d495083596/basic_pitch/saved_models/icassp_2022/nmp.onnx",
+        sha256="2c3c1d144bfa61ad236e92e169c13535c880469a12a047d4e73451f2c059a0ec",
+        size=230_444,
+        license="Apache-2.0",
+    ),
 }
 
 
@@ -138,6 +148,8 @@ def required_models(settings: Settings) -> list[str]:
         keys.append("btc")
     if settings.separation:
         keys.append("htdemucs")
+    if settings.transcription:
+        keys.append("basic_pitch")
     return keys
 
 

@@ -21,6 +21,7 @@ const health: Health = {
     urlImport: true,
     recognizers: ['chordino'],
     separation: false,
+    transcription: true,
     maxUploadMb: 50,
     maxDurationSec: 900,
   },

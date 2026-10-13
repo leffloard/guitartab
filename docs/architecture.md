@@ -202,6 +202,38 @@ worker: "downloading" (yt-dlp, bestaudio m4a, size and length limits) ─▶ the
   no separate install. Alternatives: Invidious/Piped instances (third parties, unstable),
   YouTube Data API (search only, no audio).
 
+### 4d. Tab mode (M7, experimental)
+
+```
+upload with "write out the notes" ─▶ worker: Basic Pitch (ONNX Runtime) on the mix, or on
+the "other" stem after separation ─▶ notes {start, end, midi, velocity} in AnalysisResult
+browser: assignTab (string + fret per note, Viterbi) ─▶ MusicXML (alphaTab draws it, download)
+                                                   └─▶ text tab (copy)
+```
+
+- **Why Basic Pitch through ONNX.** It is small (230 KB), instrument-agnostic, Apache-2.0, and
+  trained partly on guitar (GuitarSet). Its package cannot be installed on Python 3.12 (it pins
+  TensorFlow < 2.15.1), so `pipeline/notes.py` ports its pre- and post-processing and runs the
+  published `nmp.onnx` with ONNX Runtime; on the same activations its notes match the original
+  code's exactly. Alternatives: MT3 or other transformer transcribers (far larger, GPU-minded),
+  CREPE/pYIN (monophonic only).
+- **Decoding tuned for plucked strings.** With Basic Pitch's default thresholds a plucked
+  string comes back as several notes plus harmonics (F1 0.59 on the synthetic Karplus–Strong
+  arpeggio). Stricter onset/frame thresholds (0.7/0.4), a range ending at C6, and merging a
+  note into the previous one of the same pitch when there is no new attack raise it to 0.89
+  (precision 0.81, recall 0.98); the acceptance test asserts recall ≥ 0.9 and F1 ≥ 0.8.
+- **Tab assignment in the browser** (`packages/theory/src/tab.ts`), so it follows the capo and
+  transposition chosen on the page without a new analysis. Notes starting within 35 ms form an
+  event; every way to put an event on distinct strings with frets 0–5 above the capo (open
+  position: nothing needs a barre) is a state, and a Viterbi pass minimizes fret height,
+  stretches over three frets and the hand's movement between events. Notes out of reach are
+  listed, not forced onto the neck; with too many notes the inner voices go first.
+- **Rendering.** MusicXML is the interchange format (MuseScore and Guitar Pro read it), so the
+  same file is downloaded and drawn: onsets on a sixteenth grid from the tempo and downbeats,
+  each note held to the next onset and tied over bar lines. alphaTab (MPL-2.0) draws it in a
+  lazily loaded chunk, without its player (the page already plays the recording) and without
+  workers; its bundled Vite plugin is deprecated and missing from the 1.8 package.
+
 ### 5. Python 3.12 (not 3.11)
 
 Python 3.11 reaches end of life in October 2027. librosa 1.0 and numpy 2.5 already require ≥ 3.12.
