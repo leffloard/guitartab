@@ -4,14 +4,16 @@
  * Notes that start together (within `chordWindowSec`) form an event. For every event the
  * candidate states are the ways to put its notes on distinct strings with frets the player can
  * reach (0 = open … `maxFret`, counted from the capo). A Viterbi pass picks one state per event
- * minimizing the cost of the whole piece:
+ * minimizing the cost of the whole piece (`tabCost`):
  *
  * - fret height: open strings are free, higher frets cost a little more each;
  * - stretch: fretted notes of one event more than three frets apart are penalized heavily;
  * - hand movement: the distance the fretting hand's position (the mean fretted fret) moves
- *   from one event to the next.
+ *   from one fretted event to the next; open strings leave the hand where it was.
  *
- * Notes no string can play within reach are reported, not forced onto the neck.
+ * Because open strings carry the hand position over, the pass keeps one cell per state and
+ * carried position, so the result is the exact optimum of that cost. Notes no string can play
+ * within reach are reported, not forced onto the neck.
  */
 import { STANDARD, type Tuning } from './tuning.ts'
 
@@ -46,8 +48,21 @@ export interface TabResult {
 const COST = { fret: 0.3, fretted: 0.5, stretch: 6, move: 1 } as const
 /** Candidate states per event are capped; more only appear with large chords. */
 const MAX_STATES = 400
+/** Larger groups of simultaneous notes lose inner voices before the subset search. */
+const MAX_GROUP = 10
 
 type State = { strings: number[]; frets: number[]; cost: number; position: number | null }
+
+/** The cost of one event's frets on their own: height and stretch. */
+function shapeCost(frets: readonly number[]): { cost: number; position: number | null } {
+  const fretted = frets.filter((f) => f > 0)
+  const span = fretted.length ? Math.max(...fretted) - Math.min(...fretted) : 0
+  const cost =
+    frets.reduce((sum, f) => sum + (f > 0 ? COST.fretted + COST.fret * f : 0), 0) +
+    (span > 3 ? COST.stretch * (span - 3) : 0)
+  const position = fretted.length ? fretted.reduce((a, b) => a + b, 0) / fretted.length : null
+  return { cost, position }
+}
 
 function candidates(pitches: readonly number[], open: readonly number[], maxFret: number): State[] {
   const states: State[] = []
@@ -57,13 +72,7 @@ function candidates(pitches: readonly number[], open: readonly number[], maxFret
   const visit = (i: number) => {
     if (states.length >= MAX_STATES) return
     if (i === pitches.length) {
-      const fretted = frets.filter((f) => f > 0)
-      const span = fretted.length ? Math.max(...fretted) - Math.min(...fretted) : 0
-      const cost =
-        frets.reduce((sum, f) => sum + (f > 0 ? COST.fretted + COST.fret * f : 0), 0) +
-        (span > 3 ? COST.stretch * (span - 3) : 0)
-      const position = fretted.length ? fretted.reduce((a, b) => a + b, 0) / fretted.length : null
-      states.push({ strings: [...strings], frets: [...frets], cost, position })
+      states.push({ strings: [...strings], frets: [...frets], ...shapeCost(frets) })
       return
     }
     const pitch = pitches[i] ?? 0
@@ -92,10 +101,11 @@ function largestPlayable(
   open: readonly number[],
   maxFret: number,
 ): [NoteIn[], State[]] {
-  // Never more notes than strings; beyond that, keep the outer voices.
+  // Every subset is searched, largest first (a group never has more notes than strings);
+  // only unusually large groups lose inner voices beforehand.
   const pool = [...notes]
-  while (pool.length > open.length) pool.splice(Math.floor(pool.length / 2), 1)
-  for (let size = pool.length; size > 0; size--) {
+  while (pool.length > MAX_GROUP) pool.splice(Math.floor(pool.length / 2), 1)
+  for (let size = Math.min(pool.length, open.length); size > 0; size--) {
     for (const keep of subsets(pool.length, size)) {
       const chord = keep.map((i) => pool[i]).filter((n): n is NoteIn => n !== undefined)
       const states = candidates(
@@ -156,38 +166,44 @@ export function assignTab(notes: readonly NoteIn[], options: TabOptions = {}): T
     if (states.length > 0) steps.push({ notes: chord, states })
   }
 
-  // Viterbi over the events.
-  const best: { cost: number; from: number; position: number | null }[][] = []
+  // Viterbi over the events. A cell is a state plus the hand position it leaves: an all-open
+  // state keeps the position it inherits, so it gets one cell per incoming position.
+  type Cell = { cost: number; state: number; from: number; position: number | null }
+  const layers: Cell[][] = []
   steps.forEach((step, t) => {
-    const row = step.states.map((state) => {
-      if (t === 0) return { cost: state.cost, from: -1, position: state.position }
-      let cost = Infinity
-      let from = -1
-      let position: number | null = state.position
-      ;(best[t - 1] ?? []).forEach((prev, k) => {
-        const here = state.position ?? prev.position
-        const there = prev.position ?? here
-        const move = here !== null && there !== null ? Math.abs(here - there) : 0
-        const total = prev.cost + state.cost + COST.move * move
-        if (total < cost) {
-          cost = total
-          from = k
-          position = here
-        }
+    const previous = layers[t - 1]
+    const cells: Cell[] = []
+    step.states.forEach((state, s) => {
+      if (!previous) {
+        cells.push({ cost: state.cost, state: s, from: -1, position: state.position })
+        return
+      }
+      const byPosition = new Map<number | null, Cell>()
+      previous.forEach((prev, k) => {
+        const move =
+          state.position !== null && prev.position !== null
+            ? Math.abs(state.position - prev.position)
+            : 0
+        const cost = prev.cost + state.cost + COST.move * move
+        const position = state.position ?? prev.position
+        const known = byPosition.get(position)
+        if (!known || cost < known.cost)
+          byPosition.set(position, { cost, state: s, from: k, position })
       })
-      return { cost, from, position }
+      cells.push(...byPosition.values())
     })
-    best.push(row)
+    layers.push(cells)
   })
 
   const chosen: number[] = []
-  let k = (best.at(-1) ?? []).reduce(
+  let k = (layers.at(-1) ?? []).reduce(
     (b, cell, i, all) => (cell.cost < (all[b]?.cost ?? Infinity) ? i : b),
     0,
   )
   for (let t = steps.length - 1; t >= 0; t--) {
-    chosen[t] = k
-    k = best[t]?.[k]?.from ?? 0
+    const cell = layers[t]?.[k]
+    chosen[t] = cell?.state ?? 0
+    k = cell?.from ?? 0
   }
 
   const out: TabNote[] = []
@@ -201,18 +217,38 @@ export function assignTab(notes: readonly NoteIn[], options: TabOptions = {}): T
   return { notes: out, unplayable }
 }
 
-export interface TabGrid {
-  /** Seconds per grid step (a sixteenth note at the given tempo). */
-  step: number
-  /** Time of the first grid step (a downbeat). */
-  origin: number
-  stepsPerBar: number
+/**
+ * The cost `assignTab` minimizes, for a finished tab: each event's fret height and stretch,
+ * plus the hand's movement between fretted events (open strings leave it in place).
+ */
+export function tabCost(notes: readonly TabNote[], chordWindowSec = 0.035): number {
+  let total = 0
+  let hand: number | null = null
+  for (const group of events(notes, chordWindowSec) as TabNote[][]) {
+    const { cost, position } = shapeCost(group.map((n) => n.fret))
+    total += cost + (position !== null && hand !== null ? COST.move * Math.abs(position - hand) : 0)
+    hand = position ?? hand
+  }
+  return total
 }
 
+/** A sixteenth-note grid: where each note goes in the written tab. */
+export interface TabGrid {
+  stepsPerBar: number
+  /** The sixteenth a time falls on, counted from the tab's first bar line (0). */
+  slot: (time: number) => number
+}
+
+/** The first beat of the bar holding `beatIndex` (beats counted from the first downbeat), so
+ * that a note a hair before a bar line still belongs to that bar. */
+const barStart = (beatIndex: number, beatsPerBar: number) =>
+  Math.floor((beatIndex + 1 / 8) / beatsPerBar) * beatsPerBar
+
 /**
- * A sixteenth-note grid from the tempo and the first downbeat. It starts on the bar line of the
- * bar holding the first note (`firstNote`, default the downbeat): a pickup before the downbeat
- * gets its own bar, and silence before the first note gets none.
+ * A grid at one fixed tempo from the first downbeat. It starts on the bar line of the bar
+ * holding the first note (`firstNote`, default the downbeat): a pickup before the downbeat gets
+ * its own bar, and silence before the first note gets none. Prefer `beatGrid` when the beats
+ * are known: one tempo drifts away from a real recording within a minute.
  */
 export function tabGrid(
   bpm: number,
@@ -220,12 +256,85 @@ export function tabGrid(
   beatsPerBar = 4,
   firstNote = firstDownbeat,
 ): TabGrid {
-  const step = 60 / bpm / 4
-  const bar = step * 4 * beatsPerBar
-  // Whole bars between the downbeat and the first note (negative: before it), rounded so that
-  // a note a hair before a bar line still belongs to it.
-  const bars = Math.floor((firstNote - firstDownbeat + step / 2) / bar)
-  return { step, origin: firstDownbeat + bars * bar, stepsPerBar: 4 * beatsPerBar }
+  const beat = 60 / bpm
+  const origin = barStart((firstNote - firstDownbeat) / beat, beatsPerBar)
+  return {
+    stepsPerBar: 4 * beatsPerBar,
+    slot: (time) => Math.max(0, Math.round(((time - firstDownbeat) / beat - origin) * 4)),
+  }
+}
+
+/**
+ * A grid that follows the detected beats: a note's place is interpolated between the beats
+ * around it (four sixteenths per beat), so the tab stays in step with a recording whose tempo
+ * wanders. Bars hold `beatsPerBar` beats from the first downbeat. Before the first and after
+ * the last beat the nearest beat interval is extended. Null with fewer than two beats.
+ */
+export function beatGrid(
+  beats: readonly number[],
+  downbeats: readonly number[],
+  beatsPerBar = 4,
+  firstNote?: number,
+): TabGrid | null {
+  const times = [...beats].sort((a, b) => a - b)
+  if (times.length < 2) return null
+  // Beat indexes count from the first downbeat (the beat nearest to it).
+  const anchorTime = downbeats[0] ?? times[0] ?? 0
+  let anchor = 0
+  times.forEach((t, i) => {
+    if (Math.abs(t - anchorTime) < Math.abs((times[anchor] ?? 0) - anchorTime)) anchor = i
+  })
+  const last = times.length - 1
+  const at = (i: number) => times[i] ?? 0
+  const beatIndex = (time: number): number => {
+    if (time <= at(0)) return (time - at(0)) / (at(1) - at(0)) - anchor
+    if (time >= at(last)) return last + (time - at(last)) / (at(last) - at(last - 1)) - anchor
+    let lo = 0
+    let hi = last
+    while (hi - lo > 1) {
+      const mid = (lo + hi) >> 1
+      if (at(mid) <= time) lo = mid
+      else hi = mid
+    }
+    return lo + (time - at(lo)) / (at(hi) - at(lo)) - anchor
+  }
+  const origin = barStart(beatIndex(firstNote ?? at(anchor)), beatsPerBar)
+  return {
+    stepsPerBar: 4 * beatsPerBar,
+    slot: (time) => Math.max(0, Math.round((beatIndex(time) - origin) * 4)),
+  }
+}
+
+export interface GridPlacement {
+  /** Each written note with its slot, in time order. */
+  placed: { note: TabNote; slot: number }[]
+  /** Notes that could not be written: another note on their string took their sixteenth and
+   * the next one. */
+  crowded: TabNote[]
+}
+
+/**
+ * Puts the notes on the grid, one note per string per sixteenth. A note whose string is taken
+ * in its sixteenth (a fast hammer-on, a triplet) moves to the next one when that is free;
+ * otherwise it is listed as crowded rather than silently lost. Both writers use this, so the
+ * text and the MusicXML always show the same notes.
+ */
+export function placeOnGrid(notes: readonly TabNote[], grid: TabGrid): GridPlacement {
+  const taken = new Set<string>()
+  const placed: GridPlacement['placed'] = []
+  const crowded: TabNote[] = []
+  const sorted = [...notes].sort((a, b) => a.start - b.start || a.string - b.string)
+  for (const note of sorted) {
+    const first = grid.slot(note.start)
+    const slot = [first, first + 1].find((s) => !taken.has(`${note.string}:${s}`))
+    if (slot === undefined) {
+      crowded.push(note)
+      continue
+    }
+    taken.add(`${note.string}:${slot}`)
+    placed.push({ note, slot })
+  }
+  return { placed, crowded }
 }
 
 const STRING_NAMES = ['E', 'A', 'D', 'G', 'B', 'e'] as const
@@ -237,15 +346,15 @@ const STRING_NAMES = ['E', 'A', 'D', 'G', 'B', 'e'] as const
  *     B|---1---1---1----|
  */
 export function tabToText(notes: readonly TabNote[], grid: TabGrid, barsPerLine = 4): string {
-  if (notes.length === 0) return ''
-  const slot = (time: number) => Math.max(0, Math.round((time - grid.origin) / grid.step))
-  const lastSlot = Math.max(...notes.map((n) => slot(n.start)))
+  const { placed } = placeOnGrid(notes, grid)
+  if (placed.length === 0) return ''
+  const lastSlot = Math.max(...placed.map((p) => p.slot))
   const bars = Math.floor(lastSlot / grid.stepsPerBar) + 1
   // Two characters per slot so that two-digit frets keep the columns aligned.
   const rows = STRING_NAMES.map(() => Array.from({ length: bars * grid.stepsPerBar }, () => '--'))
-  for (const n of notes) {
-    const row = rows[n.string]
-    if (row) row[slot(n.start)] = String(n.fret).padEnd(2, '-')
+  for (const { note, slot } of placed) {
+    const row = rows[note.string]
+    if (row) row[slot] = String(note.fret).padEnd(2, '-')
   }
   const lines: string[] = []
   for (let b = 0; b < bars; b += barsPerLine) {
@@ -296,7 +405,12 @@ function pitchXml(midi: number): string {
   return `<pitch><step>${SHARP_STEPS[pc] ?? 'C'}</step>${alter}<octave>${Math.floor(midi / 12) - 1}</octave></pitch>`
 }
 
-const escapeXml = (text: string) => text.replace(/[<>&"']/g, (c) => `&#${c.charCodeAt(0)};`)
+/** Text for XML content: characters XML 1.0 does not allow (control characters, U+FFFE, lone
+ * surrogates) are dropped, markup characters escaped. A file name can contain any of them. */
+const escapeXml = (text: string) =>
+  text
+    .replace(/[^\t\n\r\u0020-\uD7FF\uE000-\uFFFD\u{10000}-\u{10FFFF}]/gu, '')
+    .replace(/[<>&"']/g, (c) => `&#${c.charCodeAt(0)};`)
 
 export interface MusicXmlOptions {
   title?: string
@@ -316,14 +430,9 @@ export function tabToMusicXml(
   options: MusicXmlOptions = {},
 ): string {
   const { title = 'BarreFree', tuning = STANDARD, capo = 0, beatsPerBar = 4 } = options
-  const slot = (time: number) => Math.max(0, Math.round((time - grid.origin) / grid.step))
   const bySlot = new Map<number, TabNote[]>()
-  for (const n of notes) {
-    const at = slot(n.start)
-    const here = bySlot.get(at) ?? []
-    // One note per string per onset.
-    if (!here.some((m) => m.string === n.string)) here.push(n)
-    bySlot.set(at, here)
+  for (const { note, slot } of placeOnGrid(notes, grid).placed) {
+    bySlot.set(slot, [...(bySlot.get(slot) ?? []), note])
   }
   const onsets = [...bySlot.keys()].sort((a, b) => a - b)
   const perBar = grid.stepsPerBar

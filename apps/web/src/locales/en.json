@@ -274,8 +274,13 @@
     "capo": "Capo on fret {{capo}}: frets count from the capo.",
     "unplayable_one": "{{count}} note is out of reach in open position and left out.",
     "unplayable_other": "{{count}} notes are out of reach in open position and left out.",
+    "crowded_one": "{{count}} note is too close to the one before on its string to be written on the sixteenth grid.",
+    "crowded_other": "{{count}} notes are too close to the one before on their string to be written on the sixteenth grid.",
     "empty": "No notes to show in open position.",
     "rendering": "Drawing the tab…",
     "renderFailed": "The tab could not be drawn. Copy or download it instead."
+  },
+  "footer": {
+    "licenses": "Licenses and sources"
   }
 }

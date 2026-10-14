@@ -92,6 +92,9 @@ export function App() {
           </section>
         )}
       </main>
+      <footer className="app-footer">
+        <a href="/third-party/NOTICE.txt">{t('footer.licenses')}</a>
+      </footer>
       <UpdatePrompt />
     </div>
   )

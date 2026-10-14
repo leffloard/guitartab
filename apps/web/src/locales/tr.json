@@ -274,8 +274,13 @@
     "capo": "Kapo {{capo}}. perdede: perdeler kapodan itibaren sayılır.",
     "unplayable_one": "{{count}} nota açık pozisyonda ulaşılamadığı için çıkarıldı.",
     "unplayable_other": "{{count}} nota açık pozisyonda ulaşılamadığı için çıkarıldı.",
+    "crowded_one": "{{count}} nota, aynı telde bir öncekine çok yakın olduğu için on altılık ızgaraya yazılamadı.",
+    "crowded_other": "{{count}} nota, aynı telde bir öncekine çok yakın olduğu için on altılık ızgaraya yazılamadı.",
     "empty": "Açık pozisyonda gösterilecek nota yok.",
     "rendering": "Tab çiziliyor…",
     "renderFailed": "Tab çizilemedi. Kopyalayabilir ya da indirebilirsin."
+  },
+  "footer": {
+    "licenses": "Lisanslar ve kaynaklar"
   }
 }

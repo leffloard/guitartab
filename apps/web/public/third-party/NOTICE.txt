@@ -1,0 +1,18 @@
+BarreFree: licenses and sources
+===============================
+
+BarreFree is open source: the web app is MIT-licensed, the analysis server GPL-3.0-or-later.
+
+The web app bundles third-party code; licenses.md (next to this file) lists every bundled
+package with its license text. Two of them come with conditions worth naming:
+
+- alphaTab (draws the experimental tab), Mozilla Public License 2.0, copyright Daniel
+  Kuschny and contributors. It is included unmodified. Its source code is available at
+  https://github.com/CoderLine/alphaTab (the release matching the version in licenses.md) and
+  in the npm package @coderline/alphatab. alphaTab integrates code under the MIT and
+  BSD-3-Clause licenses (TinySoundFont, SFZero, the Haxe standard library, SharpZipLib,
+  NVorbis, libvorbis); their notices are kept at the top of the alphaTab file in assets/.
+- The Bravura music font, SIL Open Font License 1.1: see Bravura-OFL.txt.
+
+The analysis server's notices (BTC, Basic Pitch, Demucs) are in services/analyzer/NOTICE of
+the source code, and in /app/licenses/analyzer/ inside the Docker image.

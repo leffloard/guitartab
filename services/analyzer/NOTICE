@@ -33,10 +33,11 @@ ports of code published under permissive licenses, whose notices follow.
 2. src/barrefree_analyzer/pipeline/notes.py
    Ported from basic_pitch/inference.py and basic_pitch/note_creation.py of
    https://github.com/spotify/basic-pitch (tag v0.4.0), licensed under the Apache License,
-   Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0). Changes: types added, the
+   Version 2.0; a copy is in LICENSES/Apache-2.0.txt. Changes: types added, the
    TensorFlow/CoreML/TFLite back ends, pitch bends and MIDI output removed, decoding
-   thresholds and a merge of split notes added (see the module docstring). Its NOTICE file
-   reads:
+   thresholds and a merge of split notes added, and the frame count of the unwrapped
+   output corrected so that the end of the audio is kept (see the module docstring). Its
+   NOTICE file reads:
 
    Basic Pitch
    Copyright 2022 Spotify AB

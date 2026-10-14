@@ -1,3 +1,22 @@
+# Parts of this module are ported from basic_pitch/inference.py and
+# basic_pitch/note_creation.py (https://github.com/spotify/basic-pitch, tag v0.4.0):
+#
+# Copyright 2022 Spotify AB
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Modified by the BarreFree authors; the changes are listed below and in ../../../NOTICE.
+# A copy of the License: ../../../LICENSES/Apache-2.0.txt.
 """Note transcription with Basic Pitch, run through ONNX Runtime (no TensorFlow).
 
 Bittner, Bosch, Rubinstein, Meseguer-Brocal & Ewert (2022), "A Lightweight Instrument-Agnostic
@@ -11,7 +30,9 @@ TensorFlow < 2.15.1, which has no Python 3.12 wheels. The model itself ships as 
 ports what surrounds it, changed as follows: the windowing and unwrapping of
 ``basic_pitch/inference.py`` and the note decoding of ``basic_pitch/note_creation.py``
 (``output_to_notes_polyphonic`` with inferred onsets and the "melodia trick") are kept, with
-types, and pitch bends and MIDI writing are left out: a tab needs notes, not bends.
+types, and pitch bends and MIDI writing are left out: a tab needs notes, not bends. One upstream
+defect is fixed: ``unwrap`` keeps every frame the windows cover (upstream cuts at 86 frames per
+second of audio, while the windows hold 86.6, losing the last 0.7 % of every song).
 
 The model hears 22.05 kHz mono in 2 s windows (hop 256 samples, 86 frames per second) and
 answers, per frame, the activation of each of the 88 piano keys and of note onsets.
@@ -78,10 +99,15 @@ def windows(audio: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
 
 
 def unwrap(output: npt.NDArray[np.float32], n_samples: int) -> npt.NDArray[np.float32]:
-    """Windowed model output (n, frames, keys) back to one (frames, keys) matrix."""
+    """Windowed model output (n, frames, keys) back to one (frames, keys) matrix.
+
+    Each window contributes 142 frames (172 minus the overlap) for 36164 new samples, about
+    86.6 frames per second; ``frame_times`` maps them back to seconds. Upstream keeps
+    ``n_samples * 86 / 22050`` frames, which drops the end of every song (6 s of 15 minutes).
+    """
     half = OVERLAP_FRAMES // 2
     trimmed = output[:, half:-half, :]
-    frames = int(np.floor(n_samples * (FPS / RATE)))
+    frames = int(np.ceil(n_samples * (FRAMES_PER_WINDOW - OVERLAP_FRAMES) / HOP_SAMPLES))
     return trimmed.reshape(-1, trimmed.shape[2])[:frames]
 
 
@@ -199,9 +225,18 @@ def merge_splits(
 ) -> list[tuple[int, int, int, float]]:
     """Joins back-to-back notes of the same pitch (sorted by start) into one.
 
-    With ``frames``, only when the note activation does not rise at the boundary: a string
-    plucked again while it still rings shows a new attack, a ringing note read twice does not.
+    A ringing string is read as two notes when another string is plucked: the onset head fires
+    on everything that sounds at that moment. So a split is merged only when another pitch
+    starts within two frames of it and, with ``frames``, the note activation shows no new
+    attack. A string plucked again (a repeated bass note, a picked melody) keeps its notes.
     """
+    starts: dict[int, set[int]] = {}
+    for start, _end, pitch, _amp in notes:
+        starts.setdefault(start, set()).add(pitch)
+
+    def other_pitch_starts(at: int, pitch: int) -> bool:
+        return any(q != pitch for d in range(-2, 3) for q in starts.get(at + d, ()))
+
     last: dict[int, int] = {}  # pitch -> index in out
     out: list[tuple[int, int, int, float]] = []
     for start, end, pitch, amp in notes:
@@ -209,8 +244,8 @@ def merge_splits(
         if k is not None and 0 <= start - out[k][1] <= gap:
             s0, e0, _, a0 = out[k]
             key = pitch - MIDI_OFFSET
-            replucked = False
-            if frames is not None:
+            replucked = not other_pitch_starts(start, pitch)
+            if frames is not None and not replucked:
                 before = float(np.mean(frames[max(s0, e0 - 3) : e0, key])) if e0 > s0 else 0.0
                 after = float(np.max(frames[start : start + 4, key]))
                 replucked = after > attack * max(before, 1e-6)

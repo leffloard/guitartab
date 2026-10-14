@@ -63,8 +63,10 @@ RUN apt-get update \
 COPY --from=python-deps /opt/venv /opt/venv
 COPY --from=vamp /opt/vamp /opt/vamp
 COPY --from=web /repo/apps/web/dist /app/web
-# The analyzer's license and the notices of the code it ports (BTC: MIT, Basic Pitch: Apache-2.0).
+# The analyzer's license and the notices of the code it ports (BTC: MIT, Basic Pitch:
+# Apache-2.0, Demucs: MIT), with the Apache License text.
 COPY services/analyzer/LICENSE services/analyzer/NOTICE /app/licenses/analyzer/
+COPY services/analyzer/LICENSES /app/licenses/analyzer/LICENSES
 RUN useradd --uid 10001 --no-create-home --home-dir /app --shell /usr/sbin/nologin barrefree \
     && mkdir -p /data /models \
     && chown barrefree /data /models

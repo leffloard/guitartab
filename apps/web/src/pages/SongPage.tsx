@@ -369,8 +369,9 @@ function SongView({
           title={song.title}
           capo={capoOn && option ? option.capo : 0}
           shift={view.shift}
+          beats={analysis.beats}
+          downbeats={analysis.downbeats}
           bpm={analysis.tempoBpm ?? null}
-          firstDownbeat={analysis.downbeats[0] ?? analysis.beats[0] ?? 0}
           beatsPerBar={beatsPerBar}
         />
       )}

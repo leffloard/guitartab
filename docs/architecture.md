@@ -240,22 +240,42 @@ browser: assignTab (string + fret per note, Viterbi) ─▶ MusicXML (alphaTab d
   trained partly on guitar (GuitarSet). Its package cannot be installed on Python 3.12 (it pins
   TensorFlow < 2.15.1), so `pipeline/notes.py` ports its pre- and post-processing and runs the
   published `nmp.onnx` with ONNX Runtime; on the same activations its notes match the original
-  code's exactly. Alternatives: MT3 or other transformer transcribers (far larger, GPU-minded),
-  CREPE/pYIN (monophonic only).
+  code's exactly, except for one upstream defect it fixes: the original keeps 86 frames per
+  second of audio while its windows hold 86.6, so the last 0.7 % of every song (6 s of a
+  15-minute one) was never transcribed. Alternatives: MT3 or other transformer transcribers
+  (far larger, GPU-minded), CREPE/pYIN (monophonic only).
 - **Decoding tuned for plucked strings.** With Basic Pitch's default thresholds a plucked
   string comes back as several notes plus harmonics (F1 0.59 on the synthetic Karplus–Strong
   arpeggio). Stricter onset/frame thresholds (0.7/0.4), a range ending at C6, and merging a
-  note into the previous one of the same pitch when there is no new attack raise it to 0.89
-  (precision 0.81, recall 0.98); the acceptance test asserts recall ≥ 0.9 and F1 ≥ 0.8.
+  split note back into one raise it to 0.90 (precision 0.81, recall 1.0). A split is merged
+  only where it is a misreading: another string was plucked at that moment (the onset head
+  fires on every string that sounds) and the note's own activation shows no new attack. A
+  string plucked again on its own, such as an alternating bass, keeps every pluck (F1 0.94 on
+  repeated bass notes; merging on the attack alone scored 0.43). The tests assert recall
+  ≥ 0.9 and F1 ≥ 0.8 on the arpeggio, and ≥ 0.85 on the repeated notes.
 - **Tab assignment in the browser** (`packages/theory/src/tab.ts`), so it follows the capo and
   transposition chosen on the page without a new analysis. Notes starting within 35 ms form an
   event; every way to put an event on distinct strings with frets 0–5 above the capo (open
   position: nothing needs a barre) is a state, and a Viterbi pass minimizes fret height,
-  stretches over three frets and the hand's movement between events. Notes out of reach are
-  listed, not forced onto the neck; with too many notes the inner voices go first.
+  stretches over three frets and the hand's movement between fretted events (`tabCost`).
+  Open strings leave the hand where it was, so a cell of the pass is a state _and_ the hand
+  position it carries; with one cell per state the pass missed the optimum in about 5 % of
+  short melodies. A property test compares it with a brute-force optimum. Notes out of reach
+  are listed, not forced onto the neck; a group with more notes than strings keeps the largest
+  subset that fits (all subsets are searched, inner voices dropped first on ties).
+- **The grid follows the detected beats** (`beatGrid`): a note's sixteenth is interpolated
+  between the beats around it, and bars hold the time signature's beats from the first
+  downbeat. One fixed tempo drifted by 6 sixteenths within 48 bars on the synthetic songs (the
+  reported tempo is a median of beat intervals quantized to 20 ms frames), and a real
+  performance drifts more; a fixed tempo is only the fallback without beats. Two notes on one
+  string in one sixteenth (a hammer-on, a triplet) cannot both be written: the later one moves
+  to the next sixteenth when that is free, otherwise the page says how many were left out
+  (`placeOnGrid`, shared by both writers so the text and the MusicXML always agree).
 - **Rendering.** MusicXML is the interchange format (MuseScore and Guitar Pro read it), so the
-  same file is downloaded and drawn: onsets on a sixteenth grid from the tempo and downbeats,
-  each note held to the next onset and tied over bar lines. alphaTab (MPL-2.0) draws it in a
+  same file is downloaded and drawn: each note held to the next onset and tied over bar lines;
+  it validates against the official MusicXML 4.0 schema, and characters XML forbids are
+  dropped from the title (a file name may hold them). The copied text tab starts with the
+  title and the capo, since its frets count from the capo. alphaTab (MPL-2.0) draws it in a
   lazily loaded chunk, without its player (the page already plays the recording) and without
   workers; its bundled Vite plugin is deprecated and missing from the 1.8 package.
 

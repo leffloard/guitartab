@@ -11,11 +11,12 @@ from barrefree_analyzer.pipeline.notes import (
     BasicPitchTranscriber,
     NoteSettings,
     decode_notes,
+    frame_times,
     merge_splits,
     unwrap,
     windows,
 )
-from barrefree_analyzer.synth import ARPEGGIO, RATE, render_arpeggio
+from barrefree_analyzer.synth import ARPEGGIO, RATE, ArpeggioSpec, render_arpeggio
 from tests.conftest import need_model
 
 
@@ -24,7 +25,10 @@ def test_windows_cover_the_audio_and_unwrap_back_to_its_length() -> None:
     batch = windows(audio)
     assert batch.shape[1:] == (WINDOW_SAMPLES, 1)
     frames = np.ones((len(batch), 172, 88), dtype=np.float32)
-    assert unwrap(frames, len(audio)).shape == (int(5 * FPS), 88)
+    rows = unwrap(frames, len(audio)).shape[0]
+    assert rows >= 5 * FPS
+    # The frames reach the end of the audio, and no further than one frame past it.
+    assert 5 - 1 / FPS <= frame_times(rows)[-1] <= 5 + 1 / FPS
 
 
 Matrix = npt.NDArray[np.float32]
@@ -52,11 +56,15 @@ def test_decode_finds_notes_and_keeps_to_the_guitar_range() -> None:
 def test_merge_joins_a_ringing_note_read_twice_but_keeps_a_new_pluck() -> None:
     frames = np.zeros((100, 88))
     frames[10:60, 48 - MIDI_OFFSET] = 0.5
-    split = [(10, 30, 48, 0.5), (31, 60, 48, 0.5)]
-    assert merge_splits(split, 3, frames) == [(10, 60, 48, 0.5)]
-    frames[31:35, 48 - MIDI_OFFSET] = 0.9  # a new attack
-    assert merge_splits(split, 3, frames) == split
+    # C3 rings while E3 is plucked at frame 31: the onset head fires on both strings.
+    split = [(10, 30, 48, 0.5), (31, 60, 48, 0.5), (32, 60, 52, 0.5)]
+    assert merge_splits(split, 3, frames) == [(10, 60, 48, 0.5), (32, 60, 52, 0.5)]
     assert merge_splits(split, 0, None) == split
+    frames[31:35, 48 - MIDI_OFFSET] = 0.9  # a new attack on the C3 string itself
+    assert merge_splits(split, 3, frames) == split
+    # The same string plucked again with nothing else starting: two notes, attack or not.
+    frames[31:35, 48 - MIDI_OFFSET] = 0.5
+    assert merge_splits(split[:2], 3, frames) == split[:2]
 
 
 @pytest.fixture(scope="module")
@@ -96,6 +104,35 @@ def test_transcribes_a_plucked_arpeggio(transcriber: BasicPitchTranscriber) -> N
         NoteSettings(onset_threshold=0.5, frame_threshold=0.3, merge_gap_frames=0),
     ).transcribe(audio, RATE)
     assert len(loose) > len(notes)
+
+
+def test_repeated_notes_on_a_ringing_string_stay_separate(
+    transcriber: BasicPitchTranscriber,
+) -> None:
+    """A bass note plucked again and again while it rings (alternating-bass style)."""
+    shapes = [[45] * 8, [52] * 8, [57] * 8, [40] * 8]
+    spec = ArpeggioSpec("repeated", shapes, bpm=100, steps_per_beat=2, ring=1.0, seed=3)
+    audio, reference = render_arpeggio(spec)
+    notes = transcriber.transcribe(audio, RATE)
+    precision, recall, f1 = score(reference, [(n.start, n.end, n.midi) for n in notes])
+    assert recall >= 0.85, (precision, recall, f1)
+    assert f1 >= 0.85, (precision, recall, f1)
+
+
+def test_the_end_of_a_long_song_is_transcribed(transcriber: BasicPitchTranscriber) -> None:
+    from barrefree_analyzer.synth import pluck
+
+    seconds = 240
+    audio = np.zeros(seconds * RATE, dtype=np.float32)
+    rng = np.random.default_rng(0)
+    for at in (seconds - 4.0, seconds - 1.4, seconds - 0.8):
+        tone = pluck(64, 0.6, RATE, rng).astype(np.float32)
+        i = int(at * RATE)
+        audio[i : i + len(tone)] += tone[: len(audio) - i]
+    starts = sorted(n.start for n in transcriber.transcribe(audio, RATE) if n.midi == 64)
+    # Upstream's frame count stopped at 238.4 s and lost the last two.
+    assert len(starts) == 3, starts
+    assert abs(starts[-1] - (seconds - 0.8)) < 0.05, starts
 
 
 def test_silence_has_no_notes(transcriber: BasicPitchTranscriber) -> None:
