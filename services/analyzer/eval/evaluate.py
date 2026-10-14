@@ -107,13 +107,13 @@ def main(argv: list[str] | None = None) -> int:
     if not recognizers or not flags or any(f not in ("on", "off") for f in flags):
         parser.error("--recognizers needs names; --separate takes off, on, or off,on")
     separations = [f == "on" for f in flags]
-    settings = Settings(recognizers=recognizers)
     try:
-        pipeline = build_pipeline(settings, separation=any(separations))
-    except ValueError as exc:
-        parser.error(str(exc))
-    if any(separations) and pipeline.separator is None:
-        parser.error("source separation is not available in this installation")
+        settings = Settings(recognizers=recognizers, transcription=False)
+        # Strict: a recognizer or the separator that fails to load is an error here, not a
+        # silently smaller comparison.
+        pipeline = build_pipeline(settings, separation=any(separations), strict=True)
+    except Exception as exc:
+        parser.error(f"cannot build the requested pipeline: {exc}")
     if isinstance(pipeline.separator, CachedSeparator):
         # Time every setup with its own separation pass, not with stems cached by another.
         pipeline.separator = pipeline.separator.inner

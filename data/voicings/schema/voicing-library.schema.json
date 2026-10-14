@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/leffloard/guitartab/schemas/voicing-library.schema.json",
+  "$id": "https://github.com/leffloard/guitartune/schemas/voicing-library.schema.json",
   "title": "VoicingLibrary",
   "description": "Guitar chord shapes. Arrays are indexed by string from the low E string (index 0 = 6th string) to the high E string (index 5). Frets are relative to the nut or capo: null = muted, 0 = open. Barres, base fret and tags are derived from the frets and fingers, never stored.",
   "type": "object",

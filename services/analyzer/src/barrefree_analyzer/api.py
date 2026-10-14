@@ -4,11 +4,14 @@ POST   /api/jobs               multipart (file, recognizer?, separate?, transcri
 GET    /api/jobs/{id}          job state, with the result once it is done
 GET    /api/jobs/{id}/events   Server-Sent Events: one "job" event per change, then "end"
 GET    /api/jobs/{id}/audio    normalized mono MP3 copy for the player (HTTP Range supported)
-DELETE /api/jobs/{id}          deletes the job, its audio and its result now
+DELETE /api/jobs/{id}          deletes the job, its audio, its result and its separated stems now
 
 With ENABLE_URL_IMPORT (see urlimport.py):
 POST   /api/import/resolve     {url} → the track and the YouTube videos to choose from
-POST   /api/import/jobs        {videoId, title?, recognizer?, separate?} → {jobId}
+POST   /api/import/jobs        {videoId, title?, recognizer?, separate?, transcribe?} → {jobId}
+
+Jobs may ask only for what is installed (``models.availability``): the default recognizer is
+the first available one.
 """
 
 import shutil
@@ -30,8 +33,10 @@ from barrefree_analyzer.audio import (
     probe,
 )
 from barrefree_analyzer.config import Settings
+from barrefree_analyzer.jobfiles import job_dir, remove_job_files
 from barrefree_analyzer.jobs import Job, JobStore, new_job_id
 from barrefree_analyzer.limits import RateLimiter
+from barrefree_analyzer.models import availability
 from barrefree_analyzer.schema import (
     AnalysisResult,
     ApiError,
@@ -66,8 +71,28 @@ _ERRORS: dict[int | str, dict[str, object]] = {
 }
 
 
-def job_dir(settings: Settings, job_id: str) -> Path:
-    return settings.jobs_path / job_id
+def resolve_options(
+    settings: Settings, recognizer: str | None, separate: bool, transcribe: bool
+) -> JobOptions:
+    """The job's options, refused (HTTP error) when they ask for something not installed."""
+    ready = availability(settings)
+    if not ready.recognizers:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "Chord recognition is not available on this server right now.",
+        )
+    chosen = recognizer or ready.recognizers[0]
+    if chosen not in ready.recognizers:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, f"The recognizer '{chosen}' is not available here."
+        )
+    if separate and not ready.separation:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Source separation is not available here.")
+    if transcribe and not ready.transcription:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, "Note transcription is not available here."
+        )
+    return JobOptions(recognizer=chosen, separate=separate, transcribe=transcribe)
 
 
 def to_info(job: Job, settings: Settings) -> JobInfo:
@@ -120,17 +145,7 @@ def build_router(settings: Settings, store: JobStore) -> APIRouter:
             raise HTTPException(
                 status.HTTP_429_TOO_MANY_REQUESTS, "Too many uploads. Wait a minute."
             )
-        chosen = recognizer or settings.recognizers[0]
-        if chosen not in settings.recognizers:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Unknown recognizer '{chosen}'.")
-        if separate and not settings.separation:
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST, "Source separation is not available here."
-            )
-        if transcribe and not settings.transcription:
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST, "Note transcription is not available here."
-            )
+        options = resolve_options(settings, recognizer, separate, transcribe)
         if await run_in_threadpool(store.count_pending) >= settings.max_pending_jobs:
             raise HTTPException(
                 status.HTTP_503_SERVICE_UNAVAILABLE, "The server is busy. Try again later."
@@ -158,7 +173,6 @@ def build_router(settings: Settings, store: JobStore) -> APIRouter:
                 f"The song is longer than {settings.max_duration_sec // 60} minutes.",
             )
         name = Path(file.filename or "upload").name[:200]
-        options = JobOptions(recognizer=chosen, separate=separate, transcribe=transcribe)
         await run_in_threadpool(
             store.create,
             job_id=job_id,
@@ -215,7 +229,7 @@ def build_router(settings: Settings, store: JobStore) -> APIRouter:
             if await run_in_threadpool(store.get, job.id) is None:
                 raise HTTPException(status.HTTP_404_NOT_FOUND, "Job not found.")
             raise HTTPException(status.HTTP_409_CONFLICT, "The job is still running.")
-        shutil.rmtree(job_dir(settings, job.id), ignore_errors=True)
+        await run_in_threadpool(remove_job_files, settings, job.id)
 
     return router
 
@@ -249,23 +263,12 @@ def build_import_router(
     @router.post("/jobs", status_code=status.HTTP_201_CREATED)
     async def create_url_job(body: UrlJobRequest, request: Request) -> JobCreated:
         allow(request)
-        chosen = body.recognizer or settings.recognizers[0]
-        if chosen not in settings.recognizers:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Unknown recognizer '{chosen}'.")
-        if body.separate and not settings.separation:
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST, "Source separation is not available here."
-            )
-        if body.transcribe and not settings.transcription:
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST, "Note transcription is not available here."
-            )
+        options = resolve_options(settings, body.recognizer, body.separate, body.transcribe)
         if await run_in_threadpool(store.count_pending) >= settings.max_pending_jobs:
             raise HTTPException(
                 status.HTTP_503_SERVICE_UNAVAILABLE, "The server is busy. Try again later."
             )
         job_id = new_job_id()
-        options = JobOptions(recognizer=chosen, separate=body.separate, transcribe=body.transcribe)
         name = (body.title or body.video_id).strip()[:200] or body.video_id
         await run_in_threadpool(
             store.create,

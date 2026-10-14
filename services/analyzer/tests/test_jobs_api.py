@@ -1,10 +1,12 @@
 import http.server
 import json
+import os
 import subprocess
 import threading
 import time
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterable, Iterator, Sequence
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
@@ -12,18 +14,23 @@ from fastapi.testclient import TestClient
 
 from barrefree_analyzer.app import create_app
 from barrefree_analyzer.config import Settings
+from barrefree_analyzer.jobfiles import STEMS_REF
 from barrefree_analyzer.jobs import JobStore
 from barrefree_analyzer.limits import RateLimiter
+from barrefree_analyzer.models import MODELS
 from barrefree_analyzer.pipeline.interfaces import (
     Audio,
     BeatGrid,
     Chromagram,
     KeyEstimate,
     RawChord,
+    Stems,
 )
 from barrefree_analyzer.pipeline.run import Pipeline
+from barrefree_analyzer.pipeline.separation import CachedSeparator
 from barrefree_analyzer.uploads import sniff_audio_type
 from barrefree_analyzer.worker import Worker
+from tests.conftest import fake_install
 
 
 def make_audio(path: Path, seconds: float = 3.0, fmt: str | None = None) -> Path:
@@ -72,9 +79,32 @@ def fake_pipeline(_settings: Settings) -> Pipeline:
     )
 
 
+class HalfSeparator:
+    name = "half"
+
+    def separate(self, audio: Audio, rate: int) -> Stems:
+        return Stems(rate=rate, harmonic=audio * 0.5, other=audio * 0.25)
+
+
+def separating_pipeline(settings: Settings) -> Pipeline:
+    pipeline = fake_pipeline(settings)
+    pipeline.separator = CachedSeparator(
+        HalfSeparator(),  # type: ignore[arg-type]
+        settings.stems_path,
+        ttl_sec=settings.temp_file_ttl_sec,
+    )
+    return pipeline
+
+
+def installed(tmp_path: Path, models: Iterable[str] = tuple(MODELS), **values: Any) -> Settings:
+    """Settings for a pretend installation with the given models (default: all of them)."""
+    vamp, model_dir = fake_install(tmp_path, models)
+    return Settings(data_dir=tmp_path / "data", vamp_path=vamp, model_dir=model_dir, **values)
+
+
 @pytest.fixture
 def settings(tmp_path: Path) -> Settings:
-    return Settings(data_dir=tmp_path / "data", max_upload_mb=1, max_duration_sec=60)
+    return installed(tmp_path, max_upload_mb=1, max_duration_sec=60)
 
 
 @pytest.fixture
@@ -149,7 +179,7 @@ def test_rejects_non_audio_and_oversized_uploads(client: TestClient, tmp_path: P
 
 
 def test_rejects_separation_and_notes_when_switched_off(tmp_path: Path) -> None:
-    settings = Settings(data_dir=tmp_path / "data", separation=False, transcription=False)
+    settings = installed(tmp_path, separation=False, transcription=False)
     with TestClient(create_app(settings)) as client:
         response = upload(client, make_audio(tmp_path / "a.wav"), separate="true")
         assert response.status_code == 400  # type: ignore[attr-defined]
@@ -160,13 +190,35 @@ def test_rejects_separation_and_notes_when_switched_off(tmp_path: Path) -> None:
         assert features["transcription"] is False
 
 
+def test_rejects_options_whose_models_are_not_installed(tmp_path: Path) -> None:
+    settings = installed(tmp_path, models=(), recognizers=["btc", "chordino"])
+    with TestClient(create_app(settings)) as client:
+        song = make_audio(tmp_path / "a.wav")
+        assert upload(client, song, separate="true").status_code == 400  # type: ignore[attr-defined]
+        assert upload(client, song, transcribe="true").status_code == 400  # type: ignore[attr-defined]
+        assert upload(client, song, recognizer="btc").status_code == 400  # type: ignore[attr-defined]
+        # The default is the first recognizer that is installed, not the first configured.
+        job_id = upload(client, song).json()["jobId"]  # type: ignore[attr-defined]
+        assert client.get(f"/api/jobs/{job_id}").json()["options"]["recognizer"] == "chordino"
+
+
+def test_upload_is_refused_when_no_recognizer_is_available(tmp_path: Path) -> None:
+    vamp, models = fake_install(tmp_path, models=(), plugin=False)
+    settings = Settings(data_dir=tmp_path / "data", vamp_path=vamp, model_dir=models)
+    with TestClient(create_app(settings)) as client:
+        response = upload(client, make_audio(tmp_path / "a.wav"))
+        assert response.status_code == 503  # type: ignore[attr-defined]
+        assert "not available" in response.json()["detail"]  # type: ignore[attr-defined]
+    assert not settings.jobs_path.exists() or not any(settings.jobs_path.iterdir())
+
+
 def test_rejects_audio_too_short_to_analyze(client: TestClient, tmp_path: Path) -> None:
     response = upload(client, make_audio(tmp_path / "blip.wav", seconds=0.02))
     assert response.status_code == 422  # type: ignore[attr-defined]
 
 
 def test_rejects_songs_over_the_duration_limit(tmp_path: Path) -> None:
-    settings = Settings(data_dir=tmp_path / "data", max_duration_sec=2)
+    settings = installed(tmp_path, max_duration_sec=2)
     with TestClient(create_app(settings)) as client:
         response = upload(client, make_audio(tmp_path / "long.mp3", seconds=4))
     assert response.status_code == 413  # type: ignore[attr-defined]
@@ -191,6 +243,47 @@ def test_unknown_job_is_404_and_delete_removes_files(
     assert client.delete(f"/api/jobs/{job_id}").status_code == 204
     assert client.get(f"/api/jobs/{job_id}").status_code == 404
     assert not (settings.jobs_path / job_id).exists()
+
+
+def run_separated_job(client: TestClient, settings: Settings, tmp_path: Path) -> tuple[str, Path]:
+    """Runs one job with separation through the worker; returns its id and its stems entry."""
+    job_id = upload(client, make_audio(tmp_path / "x.wav"), separate="true").json()["jobId"]  # type: ignore[attr-defined]
+    assert Worker(settings, pipeline_factory=separating_pipeline).poll_once() is True
+    assert client.get(f"/api/jobs/{job_id}").json()["result"]["meta"]["separated"] is True
+    entry = settings.stems_path / (settings.jobs_path / job_id / STEMS_REF).read_text()
+    assert entry.is_file()
+    return job_id, entry
+
+
+def test_delete_also_removes_the_separated_stems(
+    client: TestClient, settings: Settings, tmp_path: Path
+) -> None:
+    job_id, entry = run_separated_job(client, settings, tmp_path)
+    assert client.delete(f"/api/jobs/{job_id}").status_code == 204
+    assert not entry.exists()
+    assert not (settings.jobs_path / job_id).exists()
+
+
+def test_delete_ignores_a_stems_ref_pointing_elsewhere(
+    client: TestClient, settings: Settings, tmp_path: Path
+) -> None:
+    job_id = upload(client, make_audio(tmp_path / "x.wav")).json()["jobId"]  # type: ignore[attr-defined]
+    (settings.jobs_path / job_id / STEMS_REF).write_text("../../jobs.sqlite3")
+    assert client.delete(f"/api/jobs/{job_id}").status_code == 204
+    assert settings.db_path.is_file()
+    assert client.get("/api/health").status_code == 200
+
+
+def test_expired_jobs_take_their_stems_with_them(
+    client: TestClient, settings: Settings, tmp_path: Path
+) -> None:
+    job_id, entry = run_separated_job(client, settings, tmp_path)
+    later = time.time() + settings.temp_file_ttl_sec + 120
+    # Keep the entry young enough for the cache's own TTL: only the job's expiry removes it.
+    os.utime(entry, (later, later))
+    Worker(settings, pipeline_factory=separating_pipeline).cleanup(now=later)
+    assert JobStore(settings.db_path).get(job_id) is None
+    assert not entry.exists()
 
 
 def test_delete_refuses_a_running_job(

@@ -68,6 +68,21 @@ describe('upload card', () => {
     expect(screen.getByRole('checkbox', { name: /write out the notes/ })).toBeInTheDocument()
   })
 
+  it('says the server cannot analyze yet when it has no chord recognizer', () => {
+    render(
+      <UploadCard
+        health={{
+          ...health,
+          status: 'degraded',
+          features: { ...health.features, recognizers: [] },
+        }}
+        healthLoaded
+      />,
+    )
+    expect(screen.getByText(/cannot analyze songs yet/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Find the chords' })).not.toBeInTheDocument()
+  })
+
   it('cancels the upload when the page is left', async () => {
     let options: UploadOptions | undefined
     upload.mockImplementation((_file, o) => {

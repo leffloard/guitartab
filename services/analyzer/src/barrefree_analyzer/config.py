@@ -1,10 +1,15 @@
 """Runtime configuration, read from environment variables (or a ``.env`` file)."""
 
+import json
 from functools import lru_cache
 from pathlib import Path
+from typing import Annotated, Literal
 
 from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+
+#: Chord recognizers this service knows; ``Settings.recognizers`` picks from them.
+KNOWN_RECOGNIZERS = ("chordino", "btc")
 
 
 class Settings(BaseSettings):
@@ -43,9 +48,10 @@ class Settings(BaseSettings):
         description="Header holding the real client IP behind a trusted proxy, e.g. "
         "'CF-Connecting-IP' with Cloudflare Tunnel. Unset: the TCP peer address.",
     )
-    recognizers: list[str] = Field(
+    recognizers: Annotated[list[str], NoDecode] = Field(
         default=["chordino", "btc"],
-        description="Enabled chord recognizers ('chordino', 'btc'), the first is the default.",
+        description="Enabled chord recognizers ('chordino', 'btc'), the first available one is "
+        "the default. Env: a comma-separated list, e.g. RECOGNIZERS=chordino,btc.",
     )
     transcription: bool = Field(
         default=True,
@@ -56,7 +62,7 @@ class Settings(BaseSettings):
         description="Offer source separation (Demucs) as a job option. CPU-heavy: tens of "
         "seconds per minute of music.",
     )
-    beat_tracker: str = Field(default="beat_this", description="'beat_this' or 'librosa'.")
+    beat_tracker: Literal["beat_this", "librosa"] = Field(default="beat_this")
     vamp_path: Path = Field(
         default=Path(__file__).resolve().parents[2] / ".vamp",
         description="Folder with nnls-chroma.so (Chordino). Env: VAMP_PATH.",
@@ -69,6 +75,25 @@ class Settings(BaseSettings):
     model_dir: Path | None = Field(
         default=None, description="Model weights and caches. Default: <data_dir>/models."
     )
+
+    @field_validator("recognizers", mode="before")
+    @classmethod
+    def _recognizer_list(cls, value: object) -> object:
+        # A typo must fail at start-up, not leave every job without a recognizer.
+        if isinstance(value, str):
+            text = value.strip()
+            value = json.loads(text) if text.startswith("[") else text.split(",")
+        if not isinstance(value, list):
+            return value  # pydantic reports the type error
+        names = list(dict.fromkeys(str(v).strip() for v in value if str(v).strip()))
+        unknown = [n for n in names if n not in KNOWN_RECOGNIZERS]
+        if unknown:
+            raise ValueError(
+                f"unknown recognizer(s) {', '.join(unknown)}; known: {', '.join(KNOWN_RECOGNIZERS)}"
+            )
+        if not names:
+            raise ValueError("at least one recognizer is needed")
+        return names
 
     @field_validator("url_import_cookies", mode="before")
     @classmethod
@@ -84,6 +109,11 @@ class Settings(BaseSettings):
     def cache_path(self) -> Path:
         """Derived audio (separated stems); cleared on the same TTL as job files."""
         return self.data_dir / "cache"
+
+    @property
+    def stems_path(self) -> Path:
+        """Cached separation stems, one ``<sha256>.npz`` per input."""
+        return self.cache_path / "stems"
 
     @property
     def jobs_path(self) -> Path:

@@ -6,7 +6,7 @@ apply music theory (capo, transposition, voicings): that is the web app's job.
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 import numpy as np
 import numpy.typing as npt
@@ -86,6 +86,13 @@ class Separator(Protocol):
     name: str
 
     def separate(self, audio: Audio, rate: int) -> Stems: ...
+
+
+@runtime_checkable
+class StemsCache(Protocol):
+    """A separator that keeps stems on disk, under a name derived from the input."""
+
+    def entry_name(self, audio: Audio, rate: int) -> str: ...
 
 
 class NoteTranscriber(Protocol):

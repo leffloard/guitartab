@@ -16,6 +16,7 @@ from barrefree_analyzer.api import build_import_router, build_router
 from barrefree_analyzer.config import Settings, get_settings
 from barrefree_analyzer.jobs import JobStore
 from barrefree_analyzer.limits import BodySizeLimit
+from barrefree_analyzer.models import availability
 from barrefree_analyzer.schema import Features, Health
 from barrefree_analyzer.urlimport import VideoSource, YtDlpSource
 
@@ -65,14 +66,17 @@ def create_app(
 
     @app.get("/api/health")
     def health() -> Health:
+        # What is installed now: the worker downloads models after the API has started.
+        ready = availability(settings)
         return Health(
-            status="ok",
+            # "degraded": up, but no job can run until a chord recognizer is installed.
+            status="ok" if ready.recognizers else "degraded",
             version=__version__,
             features=Features(
                 url_import=url_import,
-                recognizers=settings.recognizers,
-                separation=settings.separation,
-                transcription=settings.transcription,
+                recognizers=list(ready.recognizers),
+                separation=ready.separation,
+                transcription=ready.transcription,
                 max_upload_mb=settings.max_upload_mb,
                 max_duration_sec=settings.max_duration_sec,
             ),

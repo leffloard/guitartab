@@ -77,6 +77,16 @@ worker ─▶ ffmpeg: mono 22.05 kHz float32 (analysis) + mono 128 kbit/s CBR MP
        ─▶ AnalysisResult JSON in the job row; everything deleted after the TTL (6 h)
 ```
 
+**Missing models degrade, they do not break.** The worker downloads missing or damaged weights
+when it starts (SHA-256 checked; a file that fails the check is deleted, even if the new
+download fails). Each loader takes its file only through `models.verified_model_path`, which
+checks size and SHA-256, so a damaged or replaced file is never handed to torch, ONNX Runtime
+or Demucs. A part that fails to load is left out and logged: beat_this falls back to librosa,
+and BTC, separation and notes disappear from `/api/health` (`models.availability` reports what
+is installed), so the web app stops offering them and the API refuses jobs that ask for them.
+Chordino jobs keep working. Only a server without any chord recognizer refuses uploads
+(503, health status `degraded`). The worker reloads its models when a model file changes.
+
 Every step sits behind an interface (`pipeline/interfaces.py`), so recognizers, beat trackers
 and separators can be swapped and compared by `eval/evaluate.py` (results:
 `services/analyzer/eval/report.md`).
@@ -102,6 +112,19 @@ Weights come as safetensors from a pinned commit (no pickle), the run is determi
 analysis signal is mono, so separation runs without stereo cues; a stereo decode for separation
 is a possible improvement.
 
+- _Loading._ Safetensors alone is not enough: Demucs' loader imports and calls the class named
+  in the file's metadata, so a crafted file would run code. `load_htdemucs` builds
+  `HTDemucs` itself from the file's JSON arguments and requires an exact match of the tensors.
+- _Memory._ Demucs' own `apply_model` keeps the four stereo sources of the whole song at
+  44.1 kHz (1.3 GB for 15 minutes), and julius resamples a whole song in one pass (another
+  1.3 GB of temporaries). The separator runs the same overlap-add loop but reduces each
+  segment to the two mono mixes it needs, and resamples in 30 s blocks with 4096 samples of
+  context (bit-identical to one pass). For a 15-minute song this lowers the extra memory of
+  separation from about 3.9 GB to 0.5 GB, with the same output (to 2·10⁻⁷).
+- _Cache._ Entries are written to a hidden temporary file and renamed, so concurrent workers
+  never read partial files; a damaged entry is discarded and computed again; a failed write
+  only costs the cache.
+
 **Why snap with a tolerance?** Recognizers report changes within ~0.1 s, but a beat tracker can
 miss beats or lock to half tempo. Snapping only to a beat within half a beat (at most 0.3 s) keeps
 the benefit without letting a wrong grid move chords; without the tolerance the synthetic majmin
@@ -124,8 +147,10 @@ that such uploads are rejected without a single request. Commands are argument l
 inputs carry the `file:` prefix, and each call has a timeout.
 
 **Privacy.** No accounts: an unguessable job id is the only key. The original upload is deleted
-as soon as it is decoded; the playback copy and the result are deleted after the TTL, and a
-`DELETE` removes them at once. The web app keeps its own copy in the browser (see 4b).
+as soon as it is decoded; the playback copy, the result and the separated stems (recorded per
+job in `jobs/<id>/stems.ref`) are deleted after the TTL, and a `DELETE` removes them at once.
+The web app keeps its own copy in the browser (see 4b) and sends that `DELETE` as soon as the
+song is saved, so a finished song normally stays on the server only for seconds.
 
 ### 4b. Web app: routes, library and the synced player (M4)
 

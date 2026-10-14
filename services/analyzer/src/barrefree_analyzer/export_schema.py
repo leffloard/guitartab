@@ -15,7 +15,7 @@ from pydantic.json_schema import models_json_schema
 
 from barrefree_analyzer.schema import API_MODELS, REQUEST_MODELS, AnalysisResult
 
-SCHEMA_ID = "https://github.com/leffloard/guitartab/schemas/analysis.schema.json"
+SCHEMA_ID = "https://github.com/leffloard/guitartune/schemas/analysis.schema.json"
 REPO_ROOT = Path(__file__).resolve().parents[4]
 DEFAULT_OUT = REPO_ROOT / "packages" / "contracts" / "schema" / "analysis.schema.json"
 

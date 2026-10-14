@@ -128,6 +128,7 @@
     "start": "Find the chords",
     "sending": "Uploading… {{percent}}%",
     "unavailable": "Audio analysis needs the BarreFree server, which cannot be reached right now. Pasting chords still works.",
+    "notReady": "The BarreFree server is running but cannot analyze songs yet: its chord recognizer is still being installed or did not load. Pasting chords still works.",
     "error": {
       "tooLarge": "The file is larger than {{mb}} MB.",
       "tooLong": "The file or the song is too long for this server.",

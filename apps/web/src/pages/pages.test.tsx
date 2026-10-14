@@ -231,7 +231,7 @@ describe('job page', () => {
 
   it('shows live progress, then saves the song and opens it', async () => {
     vi.stubGlobal('EventSource', FakeEventSource)
-    const fetchMock = vi.fn((url: string) =>
+    const fetchMock = vi.fn((url: string, _init?: RequestInit) =>
       Promise.resolve(
         url.endsWith('/audio')
           ? new Response('audio', { status: 200, headers: { 'content-type': 'audio/mp4' } })
@@ -255,6 +255,8 @@ describe('job page', () => {
     const saved = await getSong('job1')
     expect(saved).toMatchObject({ title: 'My Song', edits: {} })
     expect(saved?.analysis.chords).toHaveLength(5)
+    // Saved in the library, so the server's copy is deleted right away.
+    expect(fetchMock).toHaveBeenCalledWith('/api/jobs/job1', { method: 'DELETE' })
   })
 
   it('reports a failed analysis', async () => {

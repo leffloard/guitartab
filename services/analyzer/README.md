@@ -37,7 +37,7 @@ variables, see [`config.py`](src/barrefree_analyzer/config.py).
 | `GET /api/jobs/{id}`           | job state; `result` once done                               |
 | `GET /api/jobs/{id}/events`    | Server-Sent Events: `job` on every change, then `end`       |
 | `GET /api/jobs/{id}/audio`     | normalized mono MP3 for the player (HTTP Range)             |
-| `DELETE /api/jobs/{id}`        | delete the job and its files now                            |
+| `DELETE /api/jobs/{id}`        | delete the job and its files (incl. separated stems) now    |
 | `GET /api/health`, `/api/docs` | health/features, OpenAPI docs                               |
 
 ## Pipeline

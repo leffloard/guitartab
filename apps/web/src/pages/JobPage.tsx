@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Link } from '../components/Link'
-import { ApiRequestError, fetchJob, fetchJobAudio, watchJob } from '../lib/api'
+import { ApiRequestError, deleteJob, fetchJob, fetchJobAudio, watchJob } from '../lib/api'
 import { getSong, isQuotaError, saveSong } from '../lib/library'
 import { titleFromFileName } from '../lib/playback'
 import { navigate } from '../lib/router'
@@ -63,6 +63,9 @@ export function JobPage({ id }: { id: string }) {
         },
         audio,
       )
+      // The library has its own copy now: the server's (audio, stems) can go at once instead
+      // of after its expiry time. Best effort: the server deletes it later anyway.
+      void deleteJob(id).catch(() => undefined)
       // Ask the browser not to evict the library under storage pressure.
       void navigator.storage?.persist?.()
       if (mounted.current) navigate(`/songs/${id}`, { replace: true })

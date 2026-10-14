@@ -71,6 +71,12 @@ export function fetchJob(id: string, signal?: AbortSignal): Promise<JobInfo> {
   return getJson<JobInfo>(`/api/jobs/${encodeURIComponent(id)}`, signal)
 }
 
+/** Deletes the job and its files on the server now; a job that is already gone is fine. */
+export async function deleteJob(id: string): Promise<void> {
+  const response = await fetch(`/api/jobs/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  if (!response.ok && response.status !== 404) throw await errorFrom(response)
+}
+
 export async function fetchJobAudio(id: string, signal?: AbortSignal): Promise<Blob> {
   const response = await fetch(
     `/api/jobs/${encodeURIComponent(id)}/audio`,

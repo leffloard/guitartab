@@ -18,7 +18,9 @@ export function HomePage({
   return (
     <>
       <UploadCard health={health} healthLoaded={healthLoaded} />
-      {health?.features.urlImport && <LinkCard health={health} />}
+      {health?.features.urlImport && health.features.recognizers.length > 0 && (
+        <LinkCard health={health} />
+      )}
       <TextMode settings={settings} />
     </>
   )

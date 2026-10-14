@@ -128,6 +128,7 @@
     "start": "Akorları bul",
     "sending": "Yükleniyor… %{{percent}}",
     "unavailable": "Ses analizi için BarreFree sunucusu gerekiyor ve şu an ona ulaşılamıyor. Akor yapıştırma yine çalışır.",
+    "notReady": "BarreFree sunucusu çalışıyor ama henüz şarkı analiz edemiyor: akor tanıyıcısı hâlâ kuruluyor ya da yüklenemedi. Akor yapıştırma yine çalışır.",
     "error": {
       "tooLarge": "Dosya {{mb}} MB’tan büyük.",
       "tooLong": "Dosya ya da şarkı bu sunucu için fazla uzun.",

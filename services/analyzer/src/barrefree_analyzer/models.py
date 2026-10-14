@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from barrefree_analyzer.config import Settings, get_settings
+from barrefree_analyzer.pipeline.chordino import PLUGIN_FILE
 
 log = logging.getLogger("barrefree.models")
 
@@ -88,6 +89,32 @@ def model_path(settings: Settings, key: str) -> Path:
     return settings.models_path / MODELS[key].path
 
 
+#: Files already hashed, by (path, size, mtime): the worker checks every file when it starts.
+_verified: set[tuple[str, int, int]] = set()
+
+
+def verified_model_path(settings: Settings, key: str) -> Path:
+    """The model's path once its size and SHA-256 match ``MODELS``.
+
+    Loaders take their file from here only, so a damaged or replaced weights file is refused
+    rather than handed to torch, ONNX Runtime or Demucs.
+    """
+    spec = MODELS[key]
+    path = model_path(settings, key)
+    if not path.is_file():
+        raise FileNotFoundError(f"{key} weights {path} are missing; run barrefree-download-models")
+    stat = path.stat()
+    seen = (str(path.resolve()), stat.st_size, stat.st_mtime_ns)
+    if seen in _verified:
+        return path
+    if stat.st_size != spec.size or sha256_of(path) != spec.sha256:
+        raise ChecksumError(
+            f"{key} weights {path} do not match their SHA-256; run barrefree-download-models"
+        )
+    _verified.add(seen)
+    return path
+
+
 def sha256_of(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as f:
@@ -100,8 +127,13 @@ def ensure_model(settings: Settings, key: str, *, timeout: float = 120.0) -> Pat
     """Downloads a model if it is missing or corrupt; returns its path."""
     spec = MODELS[key]
     dest = model_path(settings, key)
-    if dest.is_file() and dest.stat().st_size == spec.size and sha256_of(dest) == spec.sha256:
-        return dest
+    if dest.is_file():
+        if dest.stat().st_size == spec.size and sha256_of(dest) == spec.sha256:
+            return dest
+        # Never leave a file that fails its checksum where a loader could find it, even when
+        # the new download fails.
+        log.warning("%s: %s does not match its SHA-256; downloading it again", key, dest)
+        dest.unlink()
     dest.parent.mkdir(parents=True, exist_ok=True)
     _remove_stale_partials(dest)
     log.info("downloading %s (%.0f MB) from %s", key, spec.size / 1e6, spec.url)
@@ -138,6 +170,56 @@ def _remove_stale_partials(dest: Path) -> None:
                 partial.unlink()
         except FileNotFoundError:
             pass  # another worker removed it
+
+
+#: Recognizers that need a weights file (Chordino is a Vamp plugin, checked separately).
+RECOGNIZER_MODELS = {"btc": "btc"}
+
+
+@dataclass(frozen=True)
+class Availability:
+    """What this server can run now: the switched-on features whose files are installed."""
+
+    recognizers: tuple[str, ...]
+    separation: bool
+    transcription: bool
+
+
+def _installed(settings: Settings, key: str) -> bool:
+    # Presence and size only: hashing ~180 MB on every request would be far too slow. The
+    # loaders check the SHA-256 (verified_model_path), and the worker refuses what it could
+    # not load.
+    path = model_path(settings, key)
+    try:
+        return path.stat().st_size == MODELS[key].size
+    except OSError:
+        return False
+
+
+def availability(settings: Settings) -> Availability:
+    def recognizer_ready(name: str) -> bool:
+        if name == "chordino":
+            return (settings.vamp_path / PLUGIN_FILE).is_file()
+        return _installed(settings, RECOGNIZER_MODELS[name])
+
+    return Availability(
+        recognizers=tuple(n for n in settings.recognizers if recognizer_ready(n)),
+        separation=settings.separation and _installed(settings, "htdemucs"),
+        transcription=settings.transcription and _installed(settings, "basic_pitch"),
+    )
+
+
+def fingerprint(settings: Settings) -> tuple[tuple[str, int, int], ...]:
+    """Changes when a model file or the Chordino plugin is added, replaced or removed."""
+    paths = [model_path(settings, key) for key in MODELS] + [settings.vamp_path / PLUGIN_FILE]
+    out = []
+    for path in paths:
+        try:
+            stat = path.stat()
+            out.append((str(path), stat.st_size, stat.st_mtime_ns))
+        except OSError:
+            out.append((str(path), -1, -1))
+    return tuple(out)
 
 
 def required_models(settings: Settings) -> list[str]:

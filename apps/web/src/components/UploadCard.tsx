@@ -95,6 +95,8 @@ export function UploadCard({ health, healthLoaded }: Props) {
       <h2 id="upload-title">{t('upload.title')}</h2>
       {healthLoaded && !health ? (
         <p className="hint">{t('upload.unavailable')}</p>
+      ) : health && recognizers.length === 0 ? (
+        <p className="hint">{t('upload.notReady')}</p>
       ) : (
         <>
           <div

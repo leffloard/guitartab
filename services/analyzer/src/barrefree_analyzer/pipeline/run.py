@@ -35,6 +35,10 @@ _MAJOR_TONICS = ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"
 _MINOR_TONICS = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "G#", "A", "Bb", "B"]
 
 
+class NoRecognizerError(RuntimeError):
+    """None of the configured chord recognizers could be loaded."""
+
+
 def tempo_from_beats(beats: list[float]) -> float | None:
     """Tempo from the median inter-beat interval (robust to a few missed or extra beats)."""
     if len(beats) < 4:

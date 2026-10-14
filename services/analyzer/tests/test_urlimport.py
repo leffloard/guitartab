@@ -19,6 +19,7 @@ from barrefree_analyzer.urlimport import (
     spotify_track,
 )
 from barrefree_analyzer.worker import Worker
+from tests.conftest import fake_install
 from tests.test_jobs_api import fake_pipeline
 
 VIDEO = "dQw4w9WgXcQ"
@@ -143,7 +144,10 @@ def test_a_confirmed_video_is_downloaded_and_analyzed(tmp_path: Path) -> None:
         check=True,
     )  # fmt: skip
     source = FakeSource(audio)
-    settings = Settings(data_dir=tmp_path / "data", enable_url_import=True)
+    vamp, models = fake_install(tmp_path)
+    settings = Settings(
+        data_dir=tmp_path / "data", enable_url_import=True, vamp_path=vamp, model_dir=models
+    )
     with TestClient(create_app(settings, video_source=lambda: source)) as client:
         assert client.get("/api/health").json()["features"]["urlImport"] is True
         found = client.post("/api/import/resolve", json={"url": f"https://youtu.be/{VIDEO}"})
@@ -167,6 +171,15 @@ def test_a_confirmed_video_is_downloaded_and_analyzed(tmp_path: Path) -> None:
         assert done["status"] == "done", done
         assert source.downloads == [VIDEO]
         assert client.get(f"/api/jobs/{job_id}/audio").status_code == 200
+
+
+def test_link_jobs_are_refused_without_a_recognizer(tmp_path: Path) -> None:
+    vamp, models = fake_install(tmp_path, models=(), plugin=False)
+    settings = Settings(
+        data_dir=tmp_path / "data", enable_url_import=True, vamp_path=vamp, model_dir=models
+    )
+    client = TestClient(create_app(settings, video_source=FakeSource))
+    assert client.post("/api/import/jobs", json={"videoId": VIDEO}).status_code == 503
 
 
 def test_worker_refuses_link_jobs_once_import_is_switched_off(tmp_path: Path) -> None:

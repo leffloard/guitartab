@@ -155,11 +155,18 @@ docker compose --profile tunnel up -d   # + Cloudflare Tunnel (CLOUDFLARE_TUNNEL
   `parse_link` and rebuild the request on a fixed host. yt-dlp stays limited to its YouTube
   extractors. Tests use a fake `VideoSource` and never touch the network.
 - **Model weights** are never committed or baked into images: `models.py` lists URL + SHA-256
-  (pinned commits), the worker downloads missing ones on start. Load weights without pickle code
-  execution: safetensors (Demucs) or `torch.load(weights_only=True)` with an explicit
-  `safe_globals` allow-list (BTC). `uv.lock` resolves for Linux, Windows and Apple-silicon macOS
+  (pinned commits), the worker downloads missing ones on start. Loaders get their file only
+  from `verified_model_path` (size + SHA-256). Never let a weights file choose code: Demucs is
+  built by `load_htdemucs` (fixed class, JSON arguments, strict tensors; never
+  `demucs.hf.load_safetensors_model`), BTC uses `torch.load(weights_only=True)` with an
+  explicit `safe_globals` allow-list. Optional parts degrade (`pipeline/factory.py` leaves out
+  what fails to load; `models.availability` drives health and job validation); only "no
+  recognizer at all" refuses jobs. `uv.lock` resolves for Linux, Windows and Apple-silicon macOS
   only (`[tool.uv] environments`): torch has no Intel-macOS wheels. Tests that need the plugin or weights skip, except
   under `BARREFREE_REQUIRE_MODELS=1` (set by `pnpm check`), where they fail.
+- **Job files** live in `jobs/<id>/`; remove them only with `jobfiles.remove_job_files`, which
+  also deletes the job's cached stems (`stems.ref`). API tests build settings on a pretend
+  installation (`tests/conftest.fake_install`: empty plugin file, sparse weights).
 - **Analyzer tests use synthetic audio only** (`synth.py`, ffmpeg `lavfi` sine); the M3
   acceptance test runs the full pipeline on the synthetic songs (majmin ≥ 90 %).
 - **Docker Hub** may rate-limit anonymous pulls. The Dockerfile takes `NODE_IMAGE` and

@@ -20,6 +20,8 @@ import numpy as np
 from barrefree_analyzer.pipeline.interfaces import Audio, RawChord
 
 PLUGIN_KEY = "nnls-chroma:chordino"
+#: The plugin library inside ``Settings.vamp_path``.
+PLUGIN_FILE = "nnls-chroma.so"
 
 
 def to_harte(label: str) -> str:
@@ -37,9 +39,9 @@ class ChordinoRecognizer:
     name = "chordino"
 
     def __init__(self, plugin_dir: Path) -> None:
-        if not (plugin_dir / "nnls-chroma.so").is_file():
+        if not (plugin_dir / PLUGIN_FILE).is_file():
             raise FileNotFoundError(
-                f"nnls-chroma.so not found in {plugin_dir}; run scripts/build-vamp-plugins.sh"
+                f"{PLUGIN_FILE} not found in {plugin_dir}; run scripts/build-vamp-plugins.sh"
             )
         # The host reads VAMP_PATH when it first scans for plugins.
         os.environ["VAMP_PATH"] = str(plugin_dir)
