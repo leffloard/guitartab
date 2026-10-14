@@ -250,9 +250,12 @@ browser: assignTab (string + fret per note, Viterbi) ─▶ MusicXML (alphaTab d
   split note back into one raise it to 0.90 (precision 0.81, recall 1.0). A split is merged
   only where it is a misreading: another string was plucked at that moment (the onset head
   fires on every string that sounds) and the note's own activation shows no new attack. A
-  string plucked again on its own, such as an alternating bass, keeps every pluck (F1 0.94 on
-  repeated bass notes; merging on the attack alone scored 0.43). The tests assert recall
-  ≥ 0.9 and F1 ≥ 0.8 on the arpeggio, and ≥ 0.85 on the repeated notes.
+  string plucked again on its own, such as an alternating bass, keeps its plucks (repeated
+  bass notes: F1 0.84 on average over ten renderings, 0.69–0.94; merging on the attack alone
+  scored 0.43). The tests assert recall
+  ≥ 0.9 and F1 ≥ 0.8 on the arpeggio, and mean recall ≥ 0.75 and F1 ≥ 0.8 over six renderings
+  of repeated notes (recall 0.66–0.91 among them). Known limit: a bass note plucked together
+  with a treble note (Travis-style pinches) still looks like a misreading and can be merged.
 - **Tab assignment in the browser** (`packages/theory/src/tab.ts`), so it follows the capo and
   transposition chosen on the page without a new analysis. Notes starting within 35 ms form an
   event; every way to put an event on distinct strings with frets 0–5 above the capo (open
