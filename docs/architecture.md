@@ -279,6 +279,36 @@ browser: assignTab (string + fret per note, Viterbi) ─▶ MusicXML (alphaTab d
   lazily loaded chunk, without its player (the page already plays the recording) and without
   workers; its bundled Vite plugin is deprecated and missing from the 1.8 package.
 
+### 4e. Deployment (M8)
+
+```
+Windows Server VPS ─▶ WSL 2 (Ubuntu 24.04, systemd) ─▶ Docker Engine ─▶ docker compose:
+   api (uvicorn: API + built web app, 127.0.0.1:8000)   worker (queue, models in a volume)
+   cloudflared (optional profile) ─── outbound only ───▶ Cloudflare ◀── visitors (HTTPS)
+```
+
+- **Why WSL 2 + Docker Engine.** Docker Desktop is not supported on Windows Server, and the
+  image is Linux-only (Chordino, torch CPU wheels). Docker Engine inside a WSL 2 distro runs the
+  same compose file as any Linux host. The step-by-step guide is
+  [deploy-windows.md](deploy-windows.md).
+- **Why Cloudflare Tunnel.** cloudflared opens outbound connections to Cloudflare, so the VPS
+  needs no inbound port, no certificate and no reverse proxy; the API stays bound to
+  localhost. Behind it every request comes from cloudflared, so the upload rate limit reads
+  the visitor's address from `CF-Connecting-IP` (`CLIENT_IP_HEADER`), which is safe only
+  because nothing else can reach the API.
+- **Compose.** One image, two services: the API only reads the models volume (read-only
+  mount, for `availability`), the worker downloads and loads them. Settings are listed once
+  (`x-env`) and passed explicitly, so `.env` secrets never reach the containers. Logs rotate
+  (json-file, 3 × 10 MB). Memory limits turn a runaway job into a restart of one container
+  instead of a frozen VM; the worker then fails the job it was running at once (its
+  `WORKER_ID` is recorded when it claims a job), rather than after the one-hour stale-job
+  timeout. The API stops within 5 s even with open event streams.
+- **Sizing.** [benchmarks.md](benchmarks.md) (`barrefree-benchmark`, also runnable inside the
+  worker container) measures every step's time and peak memory on synthetic songs. Separation
+  is the expensive step in both: it is opt-in per upload.
+- **Caching.** Vite's hashed assets are served `immutable`; `index.html`, the service worker
+  and the manifest are `no-cache`, so Cloudflare (or a browser) never pins an old app.
+
 ### 5. Python 3.12 (not 3.11)
 
 Python 3.11 reaches end of life in October 2027. librosa 1.0 and numpy 2.5 already require ≥ 3.12.

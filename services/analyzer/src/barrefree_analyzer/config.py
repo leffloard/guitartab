@@ -1,6 +1,7 @@
 """Runtime configuration, read from environment variables (or a ``.env`` file)."""
 
 import json
+import socket
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Literal
@@ -36,6 +37,12 @@ class Settings(BaseSettings):
         description="Finished jobs, their audio and results are deleted after this long.",
     )
     worker_poll_interval_sec: float = Field(default=1.0, gt=0)
+    worker_id: str = Field(
+        default_factory=socket.gethostname,
+        min_length=1,
+        description="Names this worker in the queue, so that after a crash or restart it fails "
+        "the jobs it was running at once. Give every worker its own id. Default: host name.",
+    )
     job_timeout_sec: int = Field(
         default=60 * 60,
         gt=0,

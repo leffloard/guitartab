@@ -117,3 +117,45 @@ def test_the_pipeline_is_rebuilt_when_a_model_file_changes(tmp_path: Path) -> No
     queue(settings, "j3", tmp_path)
     worker.poll_once()
     assert len(calls) == 2
+
+
+def test_a_restarted_worker_fails_the_jobs_it_was_running(tmp_path: Path) -> None:
+    settings = Settings(data_dir=tmp_path, worker_id="w1", worker_poll_interval_sec=0.01)
+    store = JobStore(settings.db_path)
+    for job_id in ("mine", "theirs"):
+        store.create(job_id=job_id, source={}, options={})
+    assert store.claim("w1") is not None
+    assert store.claim("w2") is not None
+    worker = Worker(settings)
+    thread = threading.Thread(target=worker.run)
+    thread.start()
+    worker.stop()
+    thread.join(timeout=5)
+    mine, theirs = store.get("mine"), store.get("theirs")
+    assert mine is not None
+    assert theirs is not None
+    assert mine.status == "failed"
+    assert mine.error == "The analysis was interrupted. Please try again."
+    assert theirs.status == "running"  # another worker's job is left alone
+
+
+def test_an_old_database_gets_the_new_column(tmp_path: Path) -> None:
+    import sqlite3
+
+    db = tmp_path / "jobs.sqlite3"
+    with sqlite3.connect(db) as conn:
+        conn.execute(
+            "CREATE TABLE jobs (id TEXT PRIMARY KEY, status TEXT NOT NULL, stage TEXT NOT NULL,"
+            " progress REAL NOT NULL DEFAULT 0, error TEXT, source TEXT NOT NULL,"
+            " options TEXT NOT NULL, result TEXT, attempts INTEGER NOT NULL DEFAULT 0,"
+            " created_at REAL NOT NULL, updated_at REAL NOT NULL)"
+        )
+        conn.execute(
+            "INSERT INTO jobs (id, status, stage, source, options, created_at, updated_at)"
+            " VALUES ('old', 'queued', 'queued', '{}', '{}', 0, 0)"
+        )
+    store = JobStore(db)
+    JobStore(db)  # opening it again (the API and the worker both do) is fine
+    job = store.claim("w1")
+    assert job is not None
+    assert job.id == "old"

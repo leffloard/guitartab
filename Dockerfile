@@ -83,4 +83,4 @@ ENV PATH="/opt/venv/bin:${PATH}" \
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s \
     CMD ["python", "-c", "import urllib.request as u; u.build_opener(u.ProxyHandler({})).open('http://127.0.0.1:8000/api/health', timeout=2)"]
-CMD ["uvicorn", "barrefree_analyzer.app:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "barrefree_analyzer.app:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--timeout-graceful-shutdown", "5"]

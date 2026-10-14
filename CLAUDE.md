@@ -81,10 +81,12 @@ uv run barrefree-export-schema   # after changing schema.py; then run `pnpm gen:
 scripts/build-vamp-plugins.sh    # Chordino plugin into .vamp/ (git, g++, make, libboost-dev)
 uv run barrefree-download-models # model weights into local-data/models (SHA-256 checked)
 uv run python eval/evaluate.py --synthetic   # chord/key scores on synthetic songs
+uv run barrefree-benchmark --out ../../docs/benchmarks.md   # time + memory per step (1, 3 min)
 
-# Docker (one image: api + worker)
-docker compose up --build
+# Docker (one image: api + worker; deploy guide: docs/deploy-windows.md)
+docker compose up -d --build
 docker compose --profile tunnel up -d   # + Cloudflare Tunnel (CLOUDFLARE_TUNNEL_TOKEN in .env)
+docker compose exec worker barrefree-benchmark --minutes 3   # sizing on the server itself
 ```
 
 ## Conventions and gotchas
@@ -92,8 +94,17 @@ docker compose --profile tunnel up -d   # + Cloudflare Tunnel (CLOUDFLARE_TUNNEL
 - **Node version:** `^22.22.2 || ^24.15.0 || >=26` (jsdom 30 is the strictest dependency; pnpm 11
   needs ≥ 22.13, and `node scripts/*.ts` needs type stripping, which is on by default from 22.18).
 - **Compose does not pass `.env` into containers** (no `env_file`): `.env` is only for
-  interpolation, and analyzer settings are listed explicitly under `environment:`. This keeps
-  secrets such as the tunnel token out of the processes that handle uploads.
+  interpolation, and analyzer settings are listed explicitly in the `x-env` anchor. This keeps
+  secrets such as the tunnel token out of the processes that handle uploads. YAML merge (`<<`)
+  is shallow: a service that sets `environment:` must merge `*env` itself. A new setting goes
+  in `config.py`, `x-env` and `.env.example`.
+- **Workers** have a `WORKER_ID` (compose: `worker-1`): at start a worker fails the jobs it was
+  running when it died (OOM, kill), instead of leaving them for `JOB_TIMEOUT_SEC`. Give each
+  worker its own id. The API stops within 5 s (`--timeout-graceful-shutdown`); a stopping
+  worker finishes its job within `stop_grace_period`.
+- **Static files**: `SpaStaticFiles` sends `immutable` for Vite's hashed `/assets/*` and
+  `no-cache` for everything else (index.html, sw.js, manifest), so a caching proxy such as
+  Cloudflare never pins an old service worker.
 
 - **Chord model:** `Chord = { root, intervals (12-bit set), bass }`; names (third, seventh,
   tensions) are derived by `describe()`. Never add a second representation of a chord.
@@ -135,6 +146,10 @@ docker compose --profile tunnel up -d   # + Cloudflare Tunnel (CLOUDFLARE_TUNNEL
   (a saved song may carry the user's fixes). Chord fixes are canonical Harte at the recording's
   pitch, typed and shown in the chart's frame (`lib/edits.ts`, `useArrangement().frame`).
   Tests use `fake-indexeddb/auto` (set up in `src/test/setup.ts`).
+- **Third-party notices in the web build**: keep `build.license` and the legal comments
+  (`rolldownOptions.output.comments.legal`) in `vite.config.ts`; a bundled dependency with
+  conditions (MPL, OFL) is named in `public/third-party/NOTICE.txt`, linked from the footer.
+  alphaTab and its font are runtime-cached on first use, not precached.
 - **svguitar** needs SVG layout APIs that jsdom lacks; `ChordDiagram` swallows draw errors so
   component tests run, and real rendering is checked in Chromium with Playwright.
 - **Python:** strict mypy, ruff (incl. bandit `S` rules), pytest. The JSON Schema drift test runs
@@ -189,4 +204,4 @@ docker compose --profile tunnel up -d   # + Cloudflare Tunnel (CLOUDFLARE_TUNNEL
 | M5  | BTC (+ lv-chordia) recognizers, Demucs, evaluation report                                       | ✅ done |
 | M6  | URL import (YouTube + Spotify metadata → search → confirm), feature flag                        | ✅ done |
 | M7  | Tab mode (basic-pitch ONNX + tab assignment + alphaTab)                                         | ✅ done |
-| M8  | Docker deploy guide (Windows Server/WSL2), Cloudflare Tunnel, benchmarks                        | next    |
+| M8  | Docker deploy guide (Windows Server/WSL2), Cloudflare Tunnel, benchmarks                        | ✅ done |

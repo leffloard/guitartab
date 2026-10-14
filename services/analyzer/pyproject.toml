@@ -28,6 +28,7 @@ dependencies = [
 barrefree-export-schema = "barrefree_analyzer.export_schema:main"
 barrefree-worker = "barrefree_analyzer.worker:main"
 barrefree-download-models = "barrefree_analyzer.models:main"
+barrefree-benchmark = "barrefree_analyzer.benchmark:main"
 
 [project.optional-dependencies]
 url = [

@@ -26,16 +26,28 @@ log = logging.getLogger("barrefree.app")
 _FORM_OVERHEAD = 64 * 1024
 
 
+#: Vite's content-hashed build output: a file's name changes whenever its content does.
+_IMMUTABLE = "public, max-age=31536000, immutable"
+
+
 class SpaStaticFiles(StaticFiles):
-    """Serves the single-page app, falling back to index.html for client-side routes."""
+    """Serves the single-page app, falling back to index.html for client-side routes.
+
+    Hashed assets may be cached for good; everything else (index.html, the service worker,
+    the manifest) must be revalidated, or a caching proxy such as Cloudflare would keep serving
+    an old service worker and the app would never update.
+    """
 
     async def get_response(self, path: str, scope: Scope) -> Response:
         try:
-            return await super().get_response(path, scope)
+            response = await super().get_response(path, scope)
         except StarletteHTTPException as exc:
             if exc.status_code != 404 or path == "api" or path.startswith("api/"):
                 raise
-            return await super().get_response("index.html", scope)
+            response = await super().get_response("index.html", scope)
+            path = "index.html"
+        response.headers["Cache-Control"] = _IMMUTABLE if path.startswith("assets/") else "no-cache"
+        return response
 
 
 def create_app(

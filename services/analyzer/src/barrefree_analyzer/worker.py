@@ -95,7 +95,7 @@ class Worker:
     def poll_once(self) -> bool:
         """Claims and runs at most one job. Returns True if a job was processed."""
         self.cleanup()
-        job = self.store.claim()
+        job = self.store.claim(self.settings.worker_id)
         if job is None:
             return False
         started = time.monotonic()
@@ -209,6 +209,9 @@ class Worker:
                     remove_job_files(self.settings, directory.name)
 
     def run(self) -> None:
+        # A job this worker was running when it died (out of memory, killed) cannot finish.
+        for job_id in self.store.fail_interrupted(self.settings.worker_id):
+            log.warning("job %s was interrupted by a restart", job_id)
         log.info("worker started (data_dir=%s)", self.settings.data_dir)
         while not self._stop.is_set():
             if not self.poll_once():

@@ -1,7 +1,36 @@
-# BarreFree: production-like local stack.
-#   docker compose up --build              # http://localhost:8000
+# BarreFree: production stack (one image; the API serves the web app too).
+#   docker compose up -d --build           # http://localhost:8000; the first start downloads
+#                                          # about 180 MB of model weights into a volume
 #   docker compose --profile tunnel up -d  # also publish through a Cloudflare Tunnel
+# Windows Server VPS (WSL 2 + Docker Engine): docs/deploy-windows.md. Settings: .env.example.
 name: barrefree
+
+# Docker keeps container logs forever by default; rotate them.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '3'
+
+# Settings are passed explicitly (no env_file) so that unrelated secrets in .env, such as the
+# tunnel token, never reach the containers that process untrusted uploads.
+x-env: &env
+  DATA_DIR: /data
+  ENABLE_URL_IMPORT: ${ENABLE_URL_IMPORT:-false}
+  MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-50}
+  MAX_DURATION_SEC: ${MAX_DURATION_SEC:-900}
+  TEMP_FILE_TTL_SEC: ${TEMP_FILE_TTL_SEC:-21600}
+  MAX_PENDING_JOBS: ${MAX_PENDING_JOBS:-20}
+  UPLOAD_RATE_PER_MIN: ${UPLOAD_RATE_PER_MIN:-6}
+  # What the server offers; parts whose weights are missing are left out on their own.
+  RECOGNIZERS: ${RECOGNIZERS:-chordino,btc}
+  SEPARATION: ${SEPARATION:-true}
+  TRANSCRIPTION: ${TRANSCRIPTION:-true}
+  # Header holding the visitor's IP, for the upload rate limit. Behind the Cloudflare Tunnel
+  # every request comes from the cloudflared container, so set it to CF-Connecting-IP there.
+  CLIENT_IP_HEADER: ${CLIENT_IP_HEADER:-}
+  # Optional, link import only: a cookies.txt of a signed-in YouTube session, inside /data.
+  URL_IMPORT_COOKIES: ${URL_IMPORT_COOKIES:-}
 
 x-app: &app
   build:
@@ -11,34 +40,46 @@ x-app: &app
       PYTHON_IMAGE: ${PYTHON_IMAGE:-python:3.12-slim-trixie}
   image: barrefree:local
   restart: unless-stopped
-  # Settings are passed explicitly (no env_file) so that unrelated secrets in .env, such as the
-  # tunnel token, never reach the containers that process untrusted uploads.
-  environment:
-    DATA_DIR: /data
-    ENABLE_URL_IMPORT: ${ENABLE_URL_IMPORT:-false}
-    MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-50}
-    MAX_DURATION_SEC: ${MAX_DURATION_SEC:-900}
-    # Header holding the visitor's IP, for the upload rate limit. Behind the Cloudflare Tunnel
-    # every request comes from the cloudflared container, so set it to CF-Connecting-IP there.
-    CLIENT_IP_HEADER: ${CLIENT_IP_HEADER:-}
-    # Optional, link import only: a cookies.txt of a signed-in YouTube session, inside /data.
-    URL_IMPORT_COOKIES: ${URL_IMPORT_COOKIES:-}
-  volumes:
-    - jobs-data:/data
-    - model-cache:/models
+  init: true
+  logging: *logging
 
 services:
   api:
     <<: *app
+    environment: *env
+    volumes:
+      - jobs-data:/data
+      # Read-only: the API only checks which models are installed.
+      - model-cache:/models:ro
     ports:
       # Bound to localhost only; expose publicly through the tunnel or a reverse proxy.
       - '127.0.0.1:${BARREFREE_PORT:-8000}:8000'
+    deploy:
+      resources:
+        limits:
+          memory: ${API_MEMORY_LIMIT:-1g}
 
   worker:
     <<: *app
     command: ['barrefree-worker']
+    environment:
+      <<: *env
+      # Names this worker in the queue: after a crash it fails its unfinished job at once.
+      # Give each worker its own id if you run several.
+      WORKER_ID: worker-1
+    volumes:
+      - jobs-data:/data
+      - model-cache:/models
+    # A stop lets the current job finish for this long; after that the job is marked
+    # interrupted when the worker starts again.
+    stop_grace_period: ${WORKER_STOP_GRACE:-2m}
     healthcheck:
       disable: true
+    deploy:
+      resources:
+        limits:
+          # See docs/benchmarks.md: separating a 15-minute song is the peak.
+          memory: ${WORKER_MEMORY_LIMIT:-4g}
 
   cloudflared:
     profiles: ['tunnel']
@@ -48,8 +89,18 @@ services:
     environment:
       # Create a tunnel in the Cloudflare dashboard, point its public hostname to http://api:8000.
       TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+      # Metrics and the readiness check on the container's own loopback only.
+      TUNNEL_METRICS: 127.0.0.1:60123
+    healthcheck:
+      # The image has no shell: cloudflared asks its own /ready endpoint.
+      test: ['CMD', 'cloudflared', 'tunnel', 'ready']
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
     depends_on:
-      - api
+      api:
+        condition: service_healthy
+    logging: *logging
 
 volumes:
   jobs-data:

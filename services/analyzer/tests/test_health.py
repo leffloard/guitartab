@@ -55,6 +55,12 @@ def test_serves_spa_with_client_side_route_fallback(tmp_path: Path) -> None:
 
     assert client.get("/").text == "<html>spa</html>"
     assert client.get("/app.js").text == "console.log(1)"
+    # Only content-hashed assets may be cached without asking again.
+    (tmp_path / "assets").mkdir()
+    (tmp_path / "assets" / "index-abc123.js").write_text("1")
+    assert client.get("/assets/index-abc123.js").headers["cache-control"].endswith("immutable")
+    for path in ("/", "/app.js", "/library/some-song"):
+        assert client.get(path).headers["cache-control"] == "no-cache"
     assert client.get("/library/some-song").text == "<html>spa</html>"
     assert client.get("/api/health").json()["status"] == "ok"
     assert client.get("/api/does-not-exist").status_code == 404

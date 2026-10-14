@@ -29,7 +29,8 @@ CREATE TABLE IF NOT EXISTS jobs (
     result      TEXT,
     attempts    INTEGER NOT NULL DEFAULT 0,
     created_at  REAL NOT NULL,
-    updated_at  REAL NOT NULL
+    updated_at  REAL NOT NULL,
+    claimed_by  TEXT
 );
 CREATE INDEX IF NOT EXISTS jobs_queue ON jobs (status, created_at);
 """
@@ -78,6 +79,13 @@ class JobStore:
         with self._connect() as conn:
             conn.execute("PRAGMA journal_mode=WAL")
             conn.executescript(_SCHEMA)
+            columns = {row["name"] for row in conn.execute("PRAGMA table_info(jobs)")}
+            if "claimed_by" not in columns:  # a database from before M8
+                try:
+                    conn.execute("ALTER TABLE jobs ADD COLUMN claimed_by TEXT")
+                except sqlite3.OperationalError as exc:  # the other process added it first
+                    if "duplicate column" not in str(exc):
+                        raise
 
     @contextmanager
     def _connect(self) -> Iterator[sqlite3.Connection]:
@@ -105,17 +113,17 @@ class JobStore:
             row = conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
         return _row_to_job(row) if row else None
 
-    def claim(self) -> Job | None:
+    def claim(self, worker: str | None = None) -> Job | None:
         """Atomically moves the oldest queued job to 'running' and returns it."""
         now = time.time()
         with self._connect() as conn:
             row = conn.execute(
                 "UPDATE jobs SET status = 'running', stage = 'decoding', progress = 0,"
-                " attempts = attempts + 1, updated_at = ?"
+                " attempts = attempts + 1, updated_at = ?, claimed_by = ?"
                 " WHERE id = (SELECT id FROM jobs WHERE status = 'queued'"
                 "             ORDER BY created_at, id LIMIT 1)"
                 " AND status = 'queued' RETURNING *",
-                (now,),
+                (now, worker),
             ).fetchone()
         return _row_to_job(row) if row else None
 
@@ -158,6 +166,20 @@ class JobStore:
                 " error = 'The analysis was interrupted. Please try again.', updated_at = ?"
                 " WHERE status = 'running' AND updated_at < ? RETURNING id",
                 (time.time(), older_than),
+            ).fetchall()
+        return [r["id"] for r in rows]
+
+    def fail_interrupted(self, worker: str) -> list[str]:
+        """Fails the jobs this worker was running when it stopped (killed, out of memory).
+
+        Called when the worker starts: nothing of its own can still be running then.
+        """
+        with self._connect() as conn:
+            rows = conn.execute(
+                "UPDATE jobs SET status = 'failed', stage = 'failed',"
+                " error = 'The analysis was interrupted. Please try again.', updated_at = ?"
+                " WHERE status = 'running' AND claimed_by = ? RETURNING id",
+                (time.time(), worker),
             ).fetchall()
         return [r["id"] for r in rows]
 
