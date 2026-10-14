@@ -39,8 +39,10 @@ docker compose up -d --build
 
 - **On a Windows Server VPS** (WSL 2 + Docker Engine, published through a Cloudflare Tunnel,
   no open ports): [docs/deploy-windows.md](docs/deploy-windows.md).
-- **Sizing**: [docs/benchmarks.md](docs/benchmarks.md) gives the time and memory of each
-  step. Run `docker compose exec worker barrefree-benchmark` to measure your own server.
+- **Sizing**: on 4 CPU cores a 3-minute song takes about 10 s with the defaults and 1.5 minutes
+  with source separation; the worker needs at most about 2.4 GB of memory (a 15-minute song
+  with everything on). Details per step: [docs/benchmarks.md](docs/benchmarks.md). Run
+  `docker compose exec worker barrefree-benchmark` to measure your own server.
 - **Settings**: [.env.example](.env.example) and
   [services/analyzer/src/barrefree_analyzer/config.py](services/analyzer/src/barrefree_analyzer/config.py).
 

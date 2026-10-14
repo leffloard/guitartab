@@ -78,7 +78,7 @@ services:
     deploy:
       resources:
         limits:
-          # See docs/benchmarks.md: separating a 15-minute song is the peak.
+          # docs/benchmarks.md: a 15-minute song with separation and notes peaks at ~2.4 GB.
           memory: ${WORKER_MEMORY_LIMIT:-4g}
 
   cloudflared:

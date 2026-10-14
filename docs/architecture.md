@@ -307,8 +307,11 @@ Windows Server VPS ─▶ WSL 2 (Ubuntu 24.04, systemd) ─▶ Docker Engine ─
   `WORKER_ID` is recorded when it claims a job), rather than after the one-hour stale-job
   timeout. The API stops within 5 s even with open event streams.
 - **Sizing.** [benchmarks.md](benchmarks.md) (`barrefree-benchmark`, also runnable inside the
-  worker container) measures every step's time and peak memory on synthetic songs. Separation
-  is the expensive step in both: it is opt-in per upload.
+  worker container) measures every step's time and peak memory on synthetic songs. On 4 cores
+  a job with the defaults runs at about 5 % of the song's length (10 s for 3 minutes) and peaks
+  at 2.0 GB for 15 minutes; separation is the expensive step in both, about 40 % of the length
+  and 2.4 GB at 15 minutes with BTC and notes too. That is why it is opt-in per upload, and why
+  the worker's memory limit is 4 GB.
 - **Caching.** Vite's hashed assets are served `immutable`; `index.html`, the service worker
   and the manifest are `no-cache`, so Cloudflare (or a browser) never pins an old app.
 
