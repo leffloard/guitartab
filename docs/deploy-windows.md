@@ -891,7 +891,7 @@ Ubuntu's `git` also keeps the Linux line endings the repository requires (`.gita
    ```bash
    # Ubuntu
    cd ~
-   git clone https://github.com/leffloard/guitartune.git ~/barrefree
+   git clone https://github.com/leffloard/guitartab.git ~/barrefree
    cd ~/barrefree
    ```
 
