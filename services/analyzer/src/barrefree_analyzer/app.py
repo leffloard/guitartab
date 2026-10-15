@@ -30,6 +30,15 @@ _FORM_OVERHEAD = 64 * 1024
 _IMMUTABLE = "public, max-age=31536000, immutable"
 
 
+def _is_client_route(path: str) -> bool:
+    """Whether a missing path may be one of the web app's routes, which never contain a dot.
+
+    A missing file (an old tab asking for a hashed chunk that a new build replaced) must stay a
+    404: index.html under its URL would be cached by the service worker as that chunk or font.
+    """
+    return not (path == "api" or path.startswith(("api/", "assets/")) or "." in path)
+
+
 class SpaStaticFiles(StaticFiles):
     """Serves the single-page app, falling back to index.html for client-side routes.
 
@@ -42,7 +51,7 @@ class SpaStaticFiles(StaticFiles):
         try:
             response = await super().get_response(path, scope)
         except StarletteHTTPException as exc:
-            if exc.status_code != 404 or path == "api" or path.startswith("api/"):
+            if exc.status_code != 404 or not _is_client_route(path):
                 raise
             response = await super().get_response("index.html", scope)
             path = "index.html"

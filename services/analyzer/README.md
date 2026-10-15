@@ -29,7 +29,8 @@ uv run barrefree-worker                                              # job worke
 
 The API and the worker share `DATA_DIR` (default `local-data/`): the SQLite queue, uploads and
 results live there and are deleted after `TEMP_FILE_TTL_SEC` (6 h). Settings are environment
-variables, see [`config.py`](src/barrefree_analyzer/config.py).
+variables, see [`config.py`](src/barrefree_analyzer/config.py). Workers that share a
+`WORKER_ID` (default: the host name) run as `<id>-2`, `<id>-3`, …, so their jobs never clash.
 
 | Endpoint                       | What                                                        |
 | ------------------------------ | ----------------------------------------------------------- |

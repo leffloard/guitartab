@@ -5,12 +5,14 @@ expired jobs and their files: no user audio stays on the server longer than the 
 """
 
 import logging
+import re
 import signal
 import threading
 import time
 from collections.abc import Callable
 from pathlib import Path
 from types import FrameType
+from typing import IO
 
 from barrefree_analyzer.audio import (
     ANALYSIS_RATE,
@@ -62,6 +64,9 @@ class Worker:
         self._load_failed_at: float | None = None
         self._stop = threading.Event()
         self._last_cleanup = 0.0
+        # The id this worker claims jobs under; run() makes it exclusive (take_id).
+        self.worker_id = settings.worker_id
+        self._id_lock: IO[str] | None = None
 
     @property
     def pipeline(self) -> Pipeline:
@@ -92,10 +97,43 @@ class Worker:
         self._load_failed_at = None
         return self._pipeline
 
+    def take_id(self) -> str:
+        """Makes this worker's id exclusive among the running workers.
+
+        Each id has a lock file on the shared data volume, held while the worker runs. When
+        another live worker holds WORKER_ID (several replicas from one compose file, or two
+        workers on one host), this one becomes WORKER_ID-2, -3 and so on. A lock is released
+        when its process ends, however it ends, so a restarted worker gets its old id back and
+        may then fail the jobs it was running. Without fcntl (Windows outside WSL) the id is
+        used as configured.
+        """
+        try:
+            import fcntl
+        except ImportError:
+            return self.worker_id
+        folder = self.settings.data_dir / "workers"
+        folder.mkdir(parents=True, exist_ok=True)
+        base = self.settings.worker_id
+        for n in range(1, 1000):
+            candidate = base if n == 1 else f"{base}-{n}"
+            lock = (folder / f"{re.sub(r'[^A-Za-z0-9_.-]', '_', candidate)}.lock").open("a")
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError:
+                lock.close()
+                continue
+            self._id_lock, self.worker_id = lock, candidate
+            return candidate
+        raise RuntimeError(f"no free worker id after {base}-999")
+
     def poll_once(self) -> bool:
         """Claims and runs at most one job. Returns True if a job was processed."""
-        self.cleanup()
-        job = self.store.claim(self.settings.worker_id)
+        try:
+            self.cleanup()
+        except Exception:
+            # Housekeeping must never stop the worker from processing jobs.
+            log.exception("clean-up failed")
+        job = self.store.claim(self.worker_id)
         if job is None:
             return False
         started = time.monotonic()
@@ -103,18 +141,21 @@ class Worker:
             self.process(job)
         except UserFacingError as exc:
             log.info("job %s failed: %s", job.id, exc)
-            self.store.fail(job.id, str(exc))
+            self.store.fail(job.id, str(exc), self.worker_id)
         except AudioError as exc:
             log.info("job %s failed: %s", job.id, exc)
-            self.store.fail(job.id, f"The audio could not be processed: {exc}.")
+            self.store.fail(job.id, f"The audio could not be processed: {exc}.", self.worker_id)
         except ImportFailedError as exc:
             log.info("job %s failed: %s", job.id, exc)
-            self.store.fail(job.id, f"The video could not be downloaded: {exc}")
+            self.store.fail(job.id, f"The video could not be downloaded: {exc}", self.worker_id)
         except Exception:
             log.exception("job %s crashed", job.id)
-            self.store.fail(job.id, "The analysis failed unexpectedly.")
+            self.store.fail(job.id, "The analysis failed unexpectedly.", self.worker_id)
         else:
             log.info("job %s done in %.1f s", job.id, time.monotonic() - started)
+            return True
+        # A failed analysis keeps no audio: its row stays, so the page can show the error.
+        remove_job_files(self.settings, job.id)
         return True
 
     def download(self, job: Job, directory: Path) -> None:
@@ -130,7 +171,7 @@ class Worker:
 
             cookies = self.settings.url_import_cookies
             self._video_source = lambda: YtDlpSource(cookies=cookies)
-        self.store.set_stage(job.id, "downloading", 0.01)
+        self.store.set_stage(job.id, "downloading", 0.01, self.worker_id)
         self._video_source().download(
             link.id,
             directory,
@@ -165,7 +206,7 @@ class Worker:
             raise UserFacingError("The song is too long.")
         if info.duration_sec < MIN_DURATION_SEC:
             raise UserFacingError("The audio is too short to analyze.")
-        self.store.set_stage(job.id, "decoding", 0.02)
+        self.store.set_stage(job.id, "decoding", 0.02, self.worker_id)
         audio = decode(upload, ANALYSIS_RATE, max_sec=max_sec, kind=kind)
         make_playback_copy(upload, directory / PLAYBACK_NAME, max_sec=max_sec, kind=kind)
         # The original upload is not needed any more; keep only the normalized copy.
@@ -177,9 +218,12 @@ class Worker:
             audio,
             ANALYSIS_RATE,
             options,
-            progress=lambda stage, fraction: self.store.set_stage(job.id, stage, fraction),
+            progress=lambda stage, fraction: self.store.set_stage(
+                job.id, stage, fraction, self.worker_id
+            ),
         )
-        self.store.finish(job.id, result.model_dump_json(by_alias=True))
+        if not self.store.finish(job.id, result.model_dump_json(by_alias=True), self.worker_id):
+            log.warning("job %s was failed while it ran; its result is dropped", job.id)
 
     def cleanup(self, now: float | None = None) -> None:
         now = time.time() if now is None else now
@@ -188,6 +232,7 @@ class Worker:
         self._last_cleanup = now
         for job_id in self.store.fail_stale(now - self.settings.job_timeout_sec):
             log.warning("job %s timed out", job_id)
+            remove_job_files(self.settings, job_id)
         ttl = self.settings.temp_file_ttl_sec
         for job_id in self.store.expired(now - ttl):
             remove_job_files(self.settings, job_id)
@@ -204,18 +249,29 @@ class Worker:
         jobs_path = self.settings.jobs_path
         if jobs_path.is_dir():
             for directory in jobs_path.iterdir():
-                stale = now - directory.stat().st_mtime > _ORPHAN_AFTER_SEC
+                try:
+                    stale = now - directory.stat().st_mtime > _ORPHAN_AFTER_SEC
+                except FileNotFoundError:
+                    continue  # deleted meanwhile (a DELETE from the API)
                 if directory.is_dir() and stale and self.store.get(directory.name) is None:
                     remove_job_files(self.settings, directory.name)
 
     def run(self) -> None:
+        self.take_id()
         # A job this worker was running when it died (out of memory, killed) cannot finish.
-        for job_id in self.store.fail_interrupted(self.settings.worker_id):
+        # The id is exclusive now, so no live worker's job is touched.
+        for job_id in self.store.fail_interrupted(self.worker_id):
             log.warning("job %s was interrupted by a restart", job_id)
-        log.info("worker started (data_dir=%s)", self.settings.data_dir)
-        while not self._stop.is_set():
-            if not self.poll_once():
-                self._stop.wait(self.settings.worker_poll_interval_sec)
+            remove_job_files(self.settings, job_id)
+        log.info("worker started as %s (data_dir=%s)", self.worker_id, self.settings.data_dir)
+        try:
+            while not self._stop.is_set():
+                if not self.poll_once():
+                    self._stop.wait(self.settings.worker_poll_interval_sec)
+        finally:
+            if self._id_lock is not None:
+                self._id_lock.close()
+                self._id_lock = None
         log.info("worker stopped")
 
     def stop(self) -> None:

@@ -57,8 +57,11 @@ The data must live on a Docker volume, never on a Windows-mounted path, because 
 over DrvFs/NTFS is unreliable.
 
 A single `UPDATE jobs SET status='running' ... WHERE id = (SELECT ... LIMIT 1) RETURNING *`
-claims the oldest queued job atomically (SQLite ≥ 3.35), so any number of workers can run. The
-API streams progress with Server-Sent Events by polling the job row every 0.5 s: no pub/sub is
+claims the oldest queued job atomically (SQLite ≥ 3.35), so any number of workers can run. Each
+records its `WORKER_ID` on the jobs it claims; the id is made exclusive by a lock file on the
+data volume (a second worker started with the same id runs as `<id>-2`), so a restarting worker
+can fail its own unfinished jobs without touching another worker's, and a job failed meanwhile
+is never written back as done. The API streams progress with Server-Sent Events by polling the job row every 0.5 s: no pub/sub is
 needed, and a reconnecting browser simply gets the current state.
 
 ### 4a. Analysis pipeline (M3)
@@ -147,8 +150,10 @@ that such uploads are rejected without a single request. Commands are argument l
 inputs carry the `file:` prefix, and each call has a timeout.
 
 **Privacy.** No accounts: an unguessable job id is the only key. The original upload is deleted
-as soon as it is decoded; the playback copy, the result and the separated stems (recorded per
-job in `jobs/<id>/stems.ref`) are deleted after the TTL, and a `DELETE` removes them at once.
+as soon as it is decoded, and every file of an analysis that fails (or is interrupted, or times
+out) is deleted at once; only its row with the error stays. The playback copy, the result and
+the separated stems (recorded per job in `jobs/<id>/stems.ref`) are deleted after the TTL,
+counted from when the analysis finished, and a `DELETE` removes them at once.
 The web app keeps its own copy in the browser (see 4b) and sends that `DELETE` as soon as the
 song is saved, so a finished song normally stays on the server only for seconds.
 
@@ -307,13 +312,18 @@ Windows Server VPS ─▶ WSL 2 (Ubuntu 24.04, systemd) ─▶ Docker Engine ─
   `WORKER_ID` is recorded when it claims a job), rather than after the one-hour stale-job
   timeout. The API stops within 5 s even with open event streams.
 - **Sizing.** [benchmarks.md](benchmarks.md) (`barrefree-benchmark`, also runnable inside the
-  worker container) measures every step's time and peak memory on synthetic songs. On 4 cores
-  a job with the defaults runs at about 5 % of the song's length (10 s for 3 minutes) and peaks
-  at 2.0 GB for 15 minutes; separation is the expensive step in both, about 40 % of the length
-  and 2.4 GB at 15 minutes with BTC and notes too. That is why it is opt-in per upload, and why
-  the worker's memory limit is 4 GB.
+  worker image) measures every step's time and peak memory on synthetic songs. On 4 cores a
+  job with the defaults takes about 10 % of the song's length (about 20 s for 3 minutes, half
+  of it decoding the upload and writing the playback copy) and peaks at 2.0 GB for 15 minutes.
+  Separation is the expensive step in time, about 40 % of the length; in memory it adds about
+  0.4 GB (2.4 GB at 15 minutes with BTC and notes too). Separation is therefore opt-in per
+  upload, and the worker's memory limit is 4 GB with or without it.
 - **Caching.** Vite's hashed assets are served `immutable`; `index.html`, the service worker
-  and the manifest are `no-cache`, so Cloudflare (or a browser) never pins an old app.
+  and the manifest are `no-cache`, so Cloudflare (or a browser) never pins an old app. Only
+  paths that can be app routes (no dot, not under `/assets/`) fall back to `index.html`; a
+  missing file is a 404. An old tab asking for a chunk that a new build replaced would
+  otherwise get the page with status 200, and Workbox, which caches only 200 responses, would
+  keep it as the tab renderer or its font.
 
 ### 5. Python 3.12 (not 3.11)
 

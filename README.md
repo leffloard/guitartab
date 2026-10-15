@@ -10,7 +10,8 @@ draws the finger diagrams and keeps the chords in sync with the music while you 
 
 - **Chord sheets** (chords over lyrics, or ChordPro): a barre-free version with capo, diagrams
   and alternatives, in Turkish or English. Runs entirely in the browser, offline too.
-- **Recordings** (MP3, WAV, FLAC, Ogg, M4A up to 15 minutes): the analyzer finds the beats, key
+- **Recordings** (MP3, WAV, FLAC, Ogg, M4A; up to 15 minutes and 50 MB, about 5 minutes of
+  CD-quality WAV; `MAX_UPLOAD_MB` raises the limit): the analyzer finds the beats, key
   and chords. The song page plays the recording with the barre-free chords in sync: current
   and next chord, a beat countdown, slower playback without changing the pitch, an A-B loop,
   marks on uncertain chords and fixes you can make. Songs stay in a library in your browser.
@@ -39,16 +40,19 @@ docker compose up -d --build
 
 - **On a Windows Server VPS** (WSL 2 + Docker Engine, published through a Cloudflare Tunnel,
   no open ports): [docs/deploy-windows.md](docs/deploy-windows.md).
-- **Sizing**: on 4 CPU cores a 3-minute song takes about 10 s with the defaults and 1.5 minutes
-  with source separation; the worker needs at most about 2.4 GB of memory (a 15-minute song
-  with everything on). Details per step: [docs/benchmarks.md](docs/benchmarks.md). Run
-  `docker compose exec worker barrefree-benchmark` to measure your own server.
-- **Settings**: [.env.example](.env.example) and
+- **Sizing**: on 4 CPU cores a 3-minute song takes about 20 s with the defaults (half of it
+  decoding the upload) and 1.6 minutes with source separation; the worker needs at most about
+  2.4 GB of memory (a 15-minute song with everything on). Details per step:
+  [docs/benchmarks.md](docs/benchmarks.md). To measure your own server, run
+  `docker compose run --rm --no-deps worker barrefree-benchmark --minutes 3,15` while no song is being analyzed.
+- **Settings**: [.env.example](.env.example) lists every setting the containers get; outside
+  Docker they are environment variables read by
   [services/analyzer/src/barrefree_analyzer/config.py](services/analyzer/src/barrefree_analyzer/config.py).
 
-**Privacy.** There are no accounts. An upload is deleted as soon as it is decoded. The
-playback copy, the result and any separated stems are deleted when the song is saved in your
-browser's library, and in any case after six hours (`TEMP_FILE_TTL_SEC`).
+**Privacy.** There are no accounts. An upload is deleted as soon as it is decoded, or at once
+if its analysis fails. The playback copy, the result and any separated stems are deleted when
+the song is saved in your browser's library, and in any case six hours after the analysis
+finished (`TEMP_FILE_TTL_SEC`).
 
 ## Development
 

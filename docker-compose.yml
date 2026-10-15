@@ -22,10 +22,14 @@ x-env: &env
   TEMP_FILE_TTL_SEC: ${TEMP_FILE_TTL_SEC:-21600}
   MAX_PENDING_JOBS: ${MAX_PENDING_JOBS:-20}
   UPLOAD_RATE_PER_MIN: ${UPLOAD_RATE_PER_MIN:-6}
+  JOB_TIMEOUT_SEC: ${JOB_TIMEOUT_SEC:-3600}
+  WORKER_POLL_INTERVAL_SEC: ${WORKER_POLL_INTERVAL_SEC:-1}
   # What the server offers; parts whose weights are missing are left out on their own.
   RECOGNIZERS: ${RECOGNIZERS:-chordino,btc}
   SEPARATION: ${SEPARATION:-true}
   TRANSCRIPTION: ${TRANSCRIPTION:-true}
+  # beat_this (default) or librosa (no 81 MB download, less accurate beats).
+  BEAT_TRACKER: ${BEAT_TRACKER:-beat_this}
   # Header holding the visitor's IP, for the upload rate limit. Behind the Cloudflare Tunnel
   # every request comes from the cloudflared container, so set it to CF-Connecting-IP there.
   CLIENT_IP_HEADER: ${CLIENT_IP_HEADER:-}
@@ -65,7 +69,7 @@ services:
     environment:
       <<: *env
       # Names this worker in the queue: after a crash it fails its unfinished job at once.
-      # Give each worker its own id if you run several.
+      # Ids are exclusive: with --scale, the other replicas run as worker-1-2, worker-1-3...
       WORKER_ID: worker-1
     volumes:
       - jobs-data:/data
@@ -80,6 +84,8 @@ services:
         limits:
           # docs/benchmarks.md: a 15-minute song with separation and notes peaks at ~2.4 GB.
           memory: ${WORKER_MEMORY_LIMIT:-4g}
+    # The same value: no swapping beyond the limit (a swapping job would only crawl).
+    memswap_limit: ${WORKER_MEMORY_LIMIT:-4g}
 
   cloudflared:
     profiles: ['tunnel']
@@ -91,6 +97,10 @@ services:
       TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
       # Metrics and the readiness check on the container's own loopback only.
       TUNNEL_METRICS: 127.0.0.1:60123
+      # auto: QUIC (UDP 7844), falling back to HTTP/2 (TCP 7844). Set http2 if UDP is blocked.
+      TUNNEL_TRANSPORT_PROTOCOL: ${TUNNEL_TRANSPORT_PROTOCOL:-auto}
+    # cloudflared lets requests in progress finish for up to 30 s when it stops.
+    stop_grace_period: 35s
     healthcheck:
       # The image has no shell: cloudflared asks its own /ready endpoint.
       test: ['CMD', 'cloudflared', 'tunnel', 'ready']

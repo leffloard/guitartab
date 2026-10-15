@@ -81,12 +81,12 @@ uv run barrefree-export-schema   # after changing schema.py; then run `pnpm gen:
 scripts/build-vamp-plugins.sh    # Chordino plugin into .vamp/ (git, g++, make, libboost-dev)
 uv run barrefree-download-models # model weights into local-data/models (SHA-256 checked)
 uv run python eval/evaluate.py --synthetic   # chord/key scores on synthetic songs
-uv run barrefree-benchmark --out ../../docs/benchmarks.md   # time + memory per step (1, 3 min)
+uv run barrefree-benchmark --minutes 1,3,15 --out ../../docs/benchmarks.md   # time + memory per step
 
 # Docker (one image: api + worker; deploy guide: docs/deploy-windows.md)
 docker compose up -d --build
 docker compose --profile tunnel up -d   # + Cloudflare Tunnel (CLOUDFLARE_TUNNEL_TOKEN in .env)
-docker compose exec worker barrefree-benchmark --minutes 3   # sizing on the server itself
+docker compose run --rm --no-deps worker barrefree-benchmark --minutes 3,15   # sizing, when idle
 ```
 
 ## Conventions and gotchas
@@ -98,9 +98,11 @@ docker compose exec worker barrefree-benchmark --minutes 3   # sizing on the ser
   secrets such as the tunnel token out of the processes that handle uploads. YAML merge (`<<`)
   is shallow: a service that sets `environment:` must merge `*env` itself. A new setting goes
   in `config.py`, `x-env` and `.env.example`.
-- **Workers** have a `WORKER_ID` (compose: `worker-1`): at start a worker fails the jobs it was
-  running when it died (OOM, kill), instead of leaving them for `JOB_TIMEOUT_SEC`. Give each
-  worker its own id. The API stops within 5 s (`--timeout-graceful-shutdown`); a stopping
+- **Workers** have a `WORKER_ID` (compose: `worker-1`), made exclusive by a lock file in
+  `DATA_DIR/workers/`: a second worker with the same id runs as `worker-1-2` (so
+  `--scale worker=N` is safe). At start a worker fails the jobs it was running when it died (OOM,
+  kill), instead of leaving them for `JOB_TIMEOUT_SEC`; job writes are guarded by `claimed_by`,
+  so a failed job is never brought back. A failed analysis keeps no files (only its row). The API stops within 5 s (`--timeout-graceful-shutdown`); a stopping
   worker finishes its job within `stop_grace_period`.
 - **Static files**: `SpaStaticFiles` sends `immutable` for Vite's hashed `/assets/*` and
   `no-cache` for everything else (index.html, sw.js, manifest), so a caching proxy such as
@@ -133,7 +135,8 @@ docker compose exec worker barrefree-benchmark --minutes 3   # sizing on the ser
   after its original column, keeps attached marks attached and never touches lyrics. A source
   capo is folded into the transposition. Example texts must use original lyrics only.
 - **URL space:** the server answers only under `/api/` (FastAPI docs at `/api/docs`); every other
-  path is the SPA, and the service worker's navigation denylist is `/^\/api\//`.
+  path is the SPA, and the service worker's navigation denylist is `/^\/api\//`. App routes
+  never contain a dot: a missing path with a dot or under `/assets/` is a 404, not index.html.
 - **PWA**: `registerType: 'prompt'` (never reload under a player); the chord library is inside
   the precached JS bundle, so text mode works offline. Vitest aliases
   `virtual:pwa-register/react` to `src/test/pwa-register-stub.ts`.

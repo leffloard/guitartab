@@ -127,28 +127,37 @@ class JobStore:
             ).fetchone()
         return _row_to_job(row) if row else None
 
-    def set_stage(self, job_id: str, stage: JobStage, progress: float) -> None:
+    # The writes below apply only to a job that is still running for the worker that claimed it
+    # (``claimed_by IS ?`` also matches a job claimed without an id). A job failed in between,
+    # as interrupted or timed out, stays failed: its user has already been told.
+
+    def set_stage(
+        self, job_id: str, stage: JobStage, progress: float, worker: str | None = None
+    ) -> None:
         with self._connect() as conn:
             conn.execute(
                 "UPDATE jobs SET stage = ?, progress = ?, updated_at = ?"
-                " WHERE id = ? AND status = 'running'",
-                (stage, min(max(progress, 0.0), 1.0), time.time(), job_id),
+                " WHERE id = ? AND status = 'running' AND claimed_by IS ?",
+                (stage, min(max(progress, 0.0), 1.0), time.time(), job_id, worker),
             )
 
-    def finish(self, job_id: str, result_json: str) -> None:
+    def finish(self, job_id: str, result_json: str, worker: str | None = None) -> bool:
+        """Stores the result; False if the job is no longer this worker's running job."""
         with self._connect() as conn:
-            conn.execute(
+            row = conn.execute(
                 "UPDATE jobs SET status = 'done', stage = 'done', progress = 1, result = ?,"
-                " error = NULL, updated_at = ? WHERE id = ?",
-                (result_json, time.time(), job_id),
-            )
+                " error = NULL, updated_at = ?"
+                " WHERE id = ? AND status = 'running' AND claimed_by IS ? RETURNING id",
+                (result_json, time.time(), job_id, worker),
+            ).fetchone()
+        return row is not None
 
-    def fail(self, job_id: str, error: str) -> None:
+    def fail(self, job_id: str, error: str, worker: str | None = None) -> None:
         with self._connect() as conn:
             conn.execute(
                 "UPDATE jobs SET status = 'failed', stage = 'failed', error = ?, updated_at = ?"
-                " WHERE id = ?",
-                (error[:500], time.time(), job_id),
+                " WHERE id = ? AND status = 'running' AND claimed_by IS ?",
+                (error[:500], time.time(), job_id, worker),
             )
 
     def count_pending(self) -> int:

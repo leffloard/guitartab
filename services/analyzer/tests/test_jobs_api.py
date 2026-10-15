@@ -375,11 +375,12 @@ def test_worker_reports_failures_and_cleans_up(settings: Settings, tmp_path: Pat
     assert job.status == "failed"
     assert job.error is not None
     assert job.error.startswith("The audio could not be processed")
+    # The upload of a failed analysis is deleted at once; the row (with its error) stays.
+    assert not broken.exists()
 
-    # After the TTL the job and its directory are gone.
+    # After the TTL the row is gone too.
     worker.cleanup(now=time.time() + settings.temp_file_ttl_sec + 120)
     assert store.get("broken") is None
-    assert not broken.exists()
 
 
 def test_store_claims_each_job_once_and_fails_stale_jobs(tmp_path: Path) -> None:

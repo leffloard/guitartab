@@ -41,7 +41,8 @@ class Settings(BaseSettings):
         default_factory=socket.gethostname,
         min_length=1,
         description="Names this worker in the queue, so that after a crash or restart it fails "
-        "the jobs it was running at once. Give every worker its own id. Default: host name.",
+        "the jobs it was running at once. Ids are exclusive (lock files in DATA_DIR/workers): "
+        "a second worker with the same id runs as <id>-2. Default: host name.",
     )
     job_timeout_sec: int = Field(
         default=60 * 60,

@@ -1,7 +1,10 @@
 """CPU time and memory of each analysis step, on synthetic songs, for sizing a server.
 
-    uv run barrefree-benchmark --out ../../docs/benchmarks.md        # 1 and 3 minutes
-    docker compose exec worker barrefree-benchmark --minutes 3       # on the server itself
+    uv run barrefree-benchmark --minutes 1,3,15 --out ../../docs/benchmarks.md
+    docker compose run --rm --no-deps worker barrefree-benchmark --minutes 3,15   # on a server
+
+On a server, run it while no song is being analyzed: its own container keeps it inside its own
+memory limit, but it shares the CPUs and the machine's memory with the worker.
 
 Every step runs in its own process, after its models are loaded, so its peak memory is its own
 and not the leftover of an earlier step. The input is a synthetic "busy" song (drums and a sung
@@ -19,7 +22,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from importlib import metadata
@@ -52,10 +55,10 @@ STAGES = [
     Stage("btc", "Chords: BTC", ("btc",)),
     Stage("separation", "Separation: Demucs (no cache)", ("htdemucs",)),
     Stage("notes", "Notes: Basic Pitch", ("basic_pitch",)),
-    Stage("job_default", "Whole job: defaults", ("chordino", "beat_this")),
+    Stage("job_default", "Analysis of the decoded song: defaults", ("chordino", "beat_this")),
     Stage(
         "job_everything",
-        "Whole job: BTC + separation + notes",
+        "Analysis of the decoded song: BTC + separation + notes",
         ("beat_this", "btc", "htdemucs", "basic_pitch"),
     ),
 ]
@@ -141,14 +144,34 @@ def _prepare(key: str, settings: Settings, workdir: Path) -> Callable[[Audio], o
         from barrefree_analyzer.pipeline.separation import CachedSeparator
         from barrefree_analyzer.schema import JobOptions
 
-        # Loaded like the worker loads it (every installed part), so the peak memory is the
-        # worker's; the stems cache is bypassed so nothing is written to the data folder.
+        # Loaded like the worker loads it (every part this server offers), so the peak memory is
+        # the worker's; the stems cache is bypassed so nothing is written to the data folder.
+        # The full job turns its parts on even where the server leaves them off: a job asking
+        # for a missing part would silently run without it and time something else.
+        everything = key == "job_everything"
+        if everything:
+            recognizers = list(dict.fromkeys(["btc", *settings.recognizers]))
+            settings = settings.model_copy(
+                update={"recognizers": recognizers, "separation": True, "transcription": True}
+            )
         pipeline = build_pipeline(settings)
+        if everything:
+            missing = [
+                name
+                for name, part in (
+                    ("BTC", pipeline.recognizers.get("btc")),
+                    ("separation", pipeline.separator),
+                    ("notes", pipeline.transcriber),
+                )
+                if part is None
+            ]
+            if missing:
+                raise RuntimeError(f"could not load {', '.join(missing)} (see the log above)")
         if isinstance(pipeline.separator, CachedSeparator):
             pipeline.separator = pipeline.separator.inner
         options = (
             JobOptions(recognizer="btc", separate=True, transcribe=True)
-            if key == "job_everything"
+            if everything
             else JobOptions()
         )
         return lambda audio: pipeline.run(audio, RATE, options)
@@ -238,7 +261,11 @@ def environment() -> dict[str, str]:
     }
 
 
-def report(results: dict[float, dict[str, dict[str, Any]]], skipped: list[str]) -> str:
+def report(
+    results: dict[float, dict[str, dict[str, Any]]],
+    skipped: Sequence[str],
+    failed: Sequence[str] = (),
+) -> str:
     env = environment()
     lines = [
         "# Benchmarks",
@@ -249,7 +276,8 @@ def report(results: dict[float, dict[str, dict[str, Any]]], skipped: list[str]) 
         "after its models were loaded and a 5-second warm-up. *Real-time factor* is run time "
         "divided by the song length (below 1 is faster than real time). *Peak memory* is the "
         "process's peak resident memory, models included: what the worker needs for that step. "
-        "Numbers depend on the hardware: run `barrefree-benchmark` on your own server.",
+        "A job's time is its Decode row plus its Analysis row. Numbers depend on the hardware: "
+        "run `barrefree-benchmark` on your own server.",
         "",
         "| Machine | |",
         "| --- | --- |",
@@ -272,6 +300,8 @@ def report(results: dict[float, dict[str, dict[str, Any]]], skipped: list[str]) 
         lines.append("")
     if skipped:
         lines += ["Skipped (not installed): " + "; ".join(skipped) + ".", ""]
+    if failed:
+        lines += ["Failed: " + "; ".join(failed) + ".", ""]
     return "\n".join(lines)
 
 
@@ -309,6 +339,7 @@ def main(argv: list[str] | None = None) -> None:
             skipped.append(f"{BY_KEY[key].title} ({', '.join(missing)})")
 
     results: dict[float, dict[str, dict[str, Any]]] = {}
+    failed: list[str] = []
     with tempfile.TemporaryDirectory(prefix="barrefree-bench-") as tmp:
         work = Path(tmp)
         for minutes in lengths:
@@ -322,14 +353,22 @@ def main(argv: list[str] | None = None) -> None:
                 cmd = [sys.executable, "-m", "barrefree_analyzer.benchmark", "--stage", key]
                 cmd += ["--audio", str(audio_path), "--workdir", str(work)]
                 cmd += ["--repeat", str(args.repeat)]
-                done = subprocess.run(cmd, check=True, capture_output=True, text=True)  # noqa: S603
+                done = subprocess.run(cmd, capture_output=True, text=True)  # noqa: S603
+                if done.returncode != 0:
+                    # One failing step (e.g. killed at the memory limit) must not lose the rest.
+                    error = (done.stderr.strip().splitlines() or [f"exit {done.returncode}"])[-1]
+                    print(done.stderr, file=sys.stderr)
+                    failed.append(f"{BY_KEY[key].title}, {minutes:g} min ({error})")
+                    continue
                 results[minutes][key] = json.loads(done.stdout.strip().splitlines()[-1])
-    text = report(results, skipped)
+    text = report(results, skipped, failed)
     if args.out:
         args.out.write_text(text + "\n")
         print(f"wrote {args.out}", file=sys.stderr)
     else:
         print(text)
+    if failed:
+        raise SystemExit(f"{len(failed)} step(s) failed: " + "; ".join(failed))
 
 
 def _write_mp3(audio: Audio, path: Path) -> None:

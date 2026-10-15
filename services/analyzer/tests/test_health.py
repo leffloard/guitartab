@@ -70,7 +70,10 @@ def test_serves_spa_with_client_side_route_fallback(tmp_path: Path) -> None:
     assert client.get("/api/openapi.json").json()["info"]["title"] == "BarreFree analyzer"
     assert client.get("/api/docs").status_code == 200
     assert client.get("/docs").text == "<html>spa</html>"
-    assert client.get("/openapi.json").text == "<html>spa</html>"
+    # A missing file is a 404, never index.html: the service worker would cache that page as
+    # the chunk or font an old tab asked for (routes never contain a dot).
+    for path in ("/openapi.json", "/assets/alphaTab-old.js", "/assets/old", "/favicon.ico"):
+        assert client.get(path).status_code == 404
 
 
 def test_no_spa_when_dist_missing(tmp_path: Path) -> None:
