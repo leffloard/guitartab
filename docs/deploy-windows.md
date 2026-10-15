@@ -1083,15 +1083,26 @@ Anyone who has the token can run your tunnel. Treat it like a password (section 
 
 ### 8.3 Put the token in `.env` and start `cloudflared`
 
-1. Write the token and two more settings into `.env` (in the Ubuntu shell). The `read` line asks
-   for the token: paste it there (nothing appears on screen) and press Enter. The other lines
-   remove the `#` in front of `CLIENT_IP_HEADER` and `COMPOSE_PROFILES` in your `.env`, so
-   nothing is added twice:
+1. Write the token and two more settings into `.env` (in the Ubuntu shell). Paste these two
+   lines **on their own** and press Enter. The `read` line then asks for the token: paste it
+   there (nothing appears on screen) and press Enter again:
 
    ```bash
    # Ubuntu
    cd ~/barrefree
    read -rsp 'Paste the tunnel token (nothing appears), then press Enter: ' T; echo
+   ```
+
+   Pasted together with the lines below, `read` would take the next pasted line as the token
+   (the Windows console sends each pasted line as a key press). If the token itself ever lands
+   on the command line (`command not found`), clear the shell history with
+   `history -c && history -w` and start again with the block above.
+
+   Then paste the rest. It writes the token and removes the `#` in front of `CLIENT_IP_HEADER`
+   and `COMPOSE_PROFILES` in your `.env`, so nothing is added twice:
+
+   ```bash
+   # Ubuntu
    sed -i "s|^CLOUDFLARE_TUNNEL_TOKEN=.*|CLOUDFLARE_TUNNEL_TOKEN=$T|; s|^# *CLIENT_IP_HEADER=CF-Connecting-IP|CLIENT_IP_HEADER=CF-Connecting-IP|; s|^# *COMPOSE_PROFILES=tunnel|COMPOSE_PROFILES=tunnel|" .env
    unset T
    grep -q '^CLIENT_IP_HEADER=' .env || echo 'CLIENT_IP_HEADER=CF-Connecting-IP' >> .env
@@ -1099,7 +1110,7 @@ Anyone who has the token can run your tunnel. Treat it like a password (section 
    grep -cE '^(CLOUDFLARE_TUNNEL_TOKEN=eyJ|CLIENT_IP_HEADER=CF-Connecting-IP|COMPOSE_PROFILES=tunnel)' .env
    ```
 
-   The last command must print `3`. If it prints less, run the block again and paste the token
+   The last command must print `3`. If it prints less, run both blocks again and paste the token
    carefully. The three settings now in `.env`:
    - `CLOUDFLARE_TUNNEL_TOKEN`: the token; only the `cloudflared` container receives it.
    - `CLIENT_IP_HEADER=CF-Connecting-IP`: behind the tunnel every request reaches the API from
