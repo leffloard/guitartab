@@ -128,6 +128,11 @@ docker compose run --rm --no-deps worker barrefree-benchmark --minutes 3,15   # 
 - **UI strings** go in `apps/web/src/locales/{en,tr}.json` (same keys in both). A hardcoded JSX
   string is a lint error; symbols such as ‹ › − + live in constants. Machine values (`value`,
   `name` attributes) are exempt.
+- **Phone layout:** nothing may make the page wider than a 320 px screen, dialogs included.
+  Grids holding form controls use `minmax(0, 1fr)`, `select` and inputs have `max-width: 100%`,
+  button rows (`.actions`) wrap. In the chord chart beat columns stay equal (position shows the
+  beat), a chord spans until the next one starts, and a song with a long name on one beat gets
+  wider bars (`.chart.is-dense`); only a name that still does not fit ends in an ellipsis.
 - **Chord sheets** (`packages/theory/src/sheet.ts`, details in docs/algorithms/transform-engine.md
   §6): a line is a chord line only if it has no ordinary words (one is tolerated next to ≥ 4
   chords); bars, wrapping parentheses, repeats and a leading section label are marks. Header

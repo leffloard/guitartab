@@ -62,7 +62,7 @@ export function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <div>
+        <div className="brand">
           <h1>
             <Link href="/" className="home-link">
               {t('app.title')}

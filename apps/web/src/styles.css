@@ -102,6 +102,12 @@ h2 {
   font-size: 1.5rem;
 }
 
+/* The title takes what the menu leaves; on the narrowest phones the menu wraps instead of
+   pushing the page wider than the screen. */
+.brand {
+  flex: 1 1 0;
+}
+
 .tagline,
 .hint {
   margin: 4px 0 0;
@@ -133,6 +139,7 @@ section {
 
 .actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -200,6 +207,8 @@ textarea {
 }
 
 select {
+  /* A long option (the recognizer names) must not widen the page on a phone. */
+  max-width: 100%;
   min-height: 36px;
   padding: 0 8px;
   border: 1px solid var(--border);
@@ -568,6 +577,8 @@ select {
 /* Navigation */
 .nav {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   align-items: flex-start;
   gap: 8px;
 }
@@ -624,6 +635,7 @@ input[type='file']:focus-visible + .button {
 }
 
 .field input {
+  max-width: 100%;
   min-height: var(--touch);
   padding: 0 10px;
   border: 1px solid var(--border);
@@ -634,6 +646,8 @@ input[type='file']:focus-visible + .button {
 /* Upload */
 .upload {
   display: grid;
+  /* minmax(0, …): the column follows the card's width, not its widest control. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
 }
 
@@ -791,6 +805,11 @@ input[type='file']:focus-visible + .button {
   list-style: none;
 }
 
+/* A song with a long chord name on a single beat: wider bars, all the same width. */
+.chart.is-dense {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+}
+
 .bar {
   display: grid;
   align-items: center;
@@ -871,12 +890,14 @@ input[type='file']:focus-visible + .button {
 
 .dialog-body {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
   padding: 16px;
 }
 
 .dialog form {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
 }
 
